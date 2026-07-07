@@ -5,6 +5,10 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.scrollview import ScrollView
 from kivy.utils import get_color_from_hex
+from kivy.config import Config
+
+# Forçar a aplicação a reconhecer os cliques corretamente no Android
+Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
 class MotorCalculoIncendios:
     CORINE_FUEL_MAP = {
@@ -28,17 +32,17 @@ class MotorCalculoIncendios:
         
         if I < 500: status, cor = "BAIXO (Ataque Manual)", "#2ecc71"
         elif I < 2000: status, cor = "MODERADO (Ataque c/ Viaturas)", "#f1c40f"
-        elif I < 4000: status, cor = "ELEVADO (Apoio Aéreo / Controfogo)", "#e67e22"
+        elif I < 4000: status, cor = "ELEVADO (Apoio Aéreo)", "#e67e22"
         else: status, cor = "EXTREMO (Fora de Capacidade)", "#e74c3c"
             
         return combustivel["nome"], R, I, altura_chama, status, cor
 
 class FireApp(App):
     def build(self):
-        self.title = "Calculadora de Incêndios"
+        self.title = "Calculadora de Incendios"
         main_layout = BoxLayout(orientation='vertical', padding=20, spacing=10)
         
-        main_layout.add(Label(text="Código CORINE (Ex: 312-Pinhal, 322-Matos):", size_hint_y=None, height=30))
+        main_layout.add(Label(text="Código CORINE (Ex: 312, 322):", size_hint_y=None, height=30))
         self.input_corine = TextInput(text="322", multiline=False, size_hint_y=None, height=40)
         main_layout.add(self.input_corine)
         
@@ -59,6 +63,7 @@ class FireApp(App):
         self.lbl_resultado.bind(texture_size=self.lbl_resultado.setter('size'))
         scroll.add_widget(self.lbl_resultado)
         main_layout.add(scroll)
+        
         return main_layout
 
     def processar_calculo(self, instance):
@@ -75,8 +80,8 @@ class FireApp(App):
                 f"[b]Alt. Chama:[/b] {chama:.2f} metros\n\n"
                 f"[b]PERIGO:[/b] [color={cor}]{status}[/color]"
             )
-        except ValueError:
-            self.lbl_resultado.text = "[color=#e74c3c]Insira valores válidos.[/color]"
+        except Exception as e:
+            self.lbl_resultado.text = f"[color=#e74c3c][b]Erro Interno:[/b] {str(e)}[/color]"
 
 if __name__ == '__main__':
     FireApp().run()
