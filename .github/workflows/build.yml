@@ -30,14 +30,13 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install "cython<3.0.0" buildozer kivy
-
-   - name: Build APK with Buildozer
+        
+    - name: Build APK with Buildozer
       run: |
-        buildozer -v android debug
-      env:
-        # Forma oficial e segura de aceitar os termos sem usar o comando 'yes'
-        APP_ANDROID_ACCEPT_SDK_LICENSE: "True"
-        GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+       buildozer -v android debug
+       env:
+          APP_ANDROID_ACCEPT_SDK_LICENSE: "True"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
