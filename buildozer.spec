@@ -19,8 +19,8 @@ source.include_exts = py,png,jpg,kv,atlas
 version = 1.0.0
 
 # (list) Application requirements
-# NOTA: Fixamos as versões exatas que funcionam sem quebrar no ecossistema Android em 2026
-requirements = python3,kivy==2.3.0,cython<3.0.0
+# FORÇAR PYTHON 3.11: Garante que o p4a compila numa versão estável
+requirements = python3==3.11.5,hostpython3==3.11.5,kivy==2.3.0,cython<3.0.0
 
 # (str) Supported orientations (landscape, portrait or all)
 orientation = portrait
