@@ -139,8 +139,8 @@ if st.session_state.clique:
         dist_2h = dist_1h + (R_agora * 1.1) * 60.0
         
         # 4. Desenhar os Cones Geométricos de 60° no Mapa
-        cone_1h = MotorFogoOrografico.generar_cone_60_graus(lat, lon, dist_1h, meteo["dir_graus"])
-        cone_2h = MotorFogoOrografico.generar_cone_60_graus(lat, lon, dist_2h, meteo["dir_graus"])
+        cone_1h = MotorFogoOrografico.gerar_cone_60_graus(lat, lon, dist_1h, meteo["dir_graus"])
+        cone_2h = MotorFogoOrografico.gerar_cone_60_graus(lat, lon, dist_2h, meteo["dir_graus"])
         
         # Adicionar polígonos ao mapa com cores táticas de aviso
         folium.Polygon(locations=cone_2h, color="#e74c3c", weight=2, fill=True, fill_color="#e74c3c", fill_opacity=0.25, popup="Projeção Cone 60° (+2 Horas)").add_to(m)
