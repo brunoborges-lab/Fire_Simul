@@ -36,17 +36,20 @@ fullscreen = 1
 # Adicionada permissão de INTERNET para futuras consultas automáticas à API do IPMA
 android.permissions = INTERNET
 
-# (int) Target Android API, should be as high as possible.
-android.api = 34
+# (int) Target Android API
+android.api = 33
 
-# (int) Minimum API your APK will support. (Android 8.0+)
+# (int) Minimum API your APK will support (Android 8.0)
 android.minapi = 26
 
 # (int) Android SDK version to use
-android.sdk = 34
+android.sdk = 33
 
-# (str) Android NDK version to use (Deixar em branco para o Buildozer escolher a melhor)
+# (str) Android NDK version to use
 android.ndk = 25b
+
+# (int) NDK API to use (Deve ser igual ao minapi para evitar conflitos)
+android.ndk_api = 26
 
 # (bool) If True, then skip trying to update the Android sdk leaves it down to the user
 android.skip_update = False
