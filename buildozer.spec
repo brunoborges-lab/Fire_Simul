@@ -46,7 +46,7 @@ android.minapi = 26
 android.sdk = 34
 
 # (str) Android NDK version to use (Deixar em branco para o Buildozer escolher a melhor)
-android.ndk = 
+android.ndk = r25b
 
 # (bool) If True, then skip trying to update the Android sdk leaves it down to the user
 android.skip_update = False
