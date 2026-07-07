@@ -1,9 +1,37 @@
-name: Build APK
+name: Build Multiplatform (Android & Windows)
 
 on: [push, workflow_dispatch]
 
 jobs:
-  build:
+  # --- JOB PARA WINDOWS ---
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11.5'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install kivy==2.3.0 pyinstaller
+
+    - name: Build EXE with PyInstaller
+      run: |
+        pyinstaller --onefile --windowed --name="Calculadora_Incendios" main.py
+
+    - name: Upload Windows EXE Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: package-windows-exe
+        path: dist/Calculadora_Incendios.exe
+
+  # --- JOB PARA ANDROID (O que já tinhas corrigido) ---
+  build-android:
     runs-on: ubuntu-22.04
 
     steps:
@@ -14,7 +42,6 @@ jobs:
       with:
         python-version: '3.11.5'
 
-    # Correção crucial: Configurar o Java Corretamente antes de tudo
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
@@ -29,22 +56,20 @@ jobs:
     - name: Install Pip Dependencies
       run: |
         pip install --upgrade pip
-        pip install "cython<3.0.0" buildozer kivy
-        
+        pip install "cython<3.0.0" buildozer kivy==2.3.0
+
     - name: Build APK with Buildozer
       run: |
-        # Remover variáveis globais que baralham o Buildozer
         unset ANDROID_NDK_HOME
         unset ANDROID_NDK_ROOT
         unset ANDROID_NDK
-        
         buildozer -v android debug
       env:
         APP_ANDROID_ACCEPT_SDK_LICENSE: "True"
         GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
-    - name: Upload APK Artifact
+    - name: Upload Android APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: package-apk
+        name: package-android-apk
         path: bin/*.apk
