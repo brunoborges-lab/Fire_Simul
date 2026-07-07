@@ -33,10 +33,15 @@ jobs:
         
     - name: Build APK with Buildozer
       run: |
-       buildozer -v android debug
-       env:
-          APP_ANDROID_ACCEPT_SDK_LICENSE: "True"
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+        # Remover variáveis globais que baralham o Buildozer
+        unset ANDROID_NDK_HOME
+        unset ANDROID_NDK_ROOT
+        unset ANDROID_NDK
+        
+        buildozer -v android debug
+      env:
+        APP_ANDROID_ACCEPT_SDK_LICENSE: "True"
+        GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
