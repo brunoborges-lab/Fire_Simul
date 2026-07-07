@@ -159,3 +159,14 @@ with col_dados:
         "Tipo de Vegetação Local (COS):",
         options=[322, 312, 311, 321, 324],
         format_func=lambda x: f"{MotorCalculoIncendios.COS_FUEL_MAP[x]['nome']}"
+    )
+
+    if dados_carregados:
+        # Executa os cálculos matemáticos com base nas variáveis do IPMA capturadas
+        R, I, chama = MotorCalculoIncendios.calcular(cos_selecionada, vento_real, pir_info["nivel"])
+        
+        st.write("---")
+        res1, res2, res3 = st.columns(3)
+        res1.metric(label="Velocidade de Avanço", value=f"{R:.2f} m/min")
+        res2.metric(label="Intensidade da Frente", value=f"{I:.2f} kW/m")
+        res3.metric(label="Altura da Chama", value=f"{chama:.2f} metros")
