@@ -17,7 +17,7 @@ st.set_page_config(
 st.markdown("""
     <style>
     .reportview-container { background: #1e2530; }
-    .stSidebar { background-color: #101010 !important; border-right: 2px solid #2d3748; }
+    .stSidebar { background-color: #ffffff !important; border-right: 2px solid #2d3748; }
     .stMetric { background-color: #242e3d; border: 1px solid #3e4b5e; padding: 10px; border-radius: 4px; }
     .geoprociv-card { background-color: #242e3d; padding: 12px; border-radius: 4px; border-left: 5px solid #ff793f; margin-bottom: 10px; }
     .layer-section { font-weight: bold; color: #74b9ff; margin-top: 10px; font-size: 14px; }
