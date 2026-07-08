@@ -82,7 +82,7 @@ st.title("🔥 FEB Monitorização — Consola Ativa ArcGIS & Despacho SIG")
 st.write("Introdução polivalente de dados, cruzamento com CAOP/MDT/COS e mapas de Satélite ArcGIS.")
 st.markdown("---")
 
-col_ painel, col_mapa = st.columns([1, 1.2])
+col_painel, col_mapa = st.columns([1, 1.2])
 
 with col_painel:
     st.markdown("<p class='section-title'>📍 Método de Entrada de Localização</p>", unsafe_allow_html=True)
