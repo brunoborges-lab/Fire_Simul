@@ -5,29 +5,29 @@ import folium
 import pandas as pd
 import math
 from datetime import datetime, timedelta
-import time
 
 # --- 1. CONFIGURAÇÃO OPERACIONAL FIRESIMUL ---
 st.set_page_config(
-    page_title="FIRESIMUL v5.6 - Monitorização Estável",
+    page_title="FIRESIMUL v5.6 - Monitorização de Redes e Infraestruturas",
     page_icon="🛡️",
     layout="wide"
 )
 
-# Estilo Visual Tático de Sala de Crise
+# Estilo Visual Tático de Sala de Crise com suporte para novas camadas de infraestruturas
 st.markdown("""
     <style>
     .reportview-container { background: #1a1a1a; }
-    .stSidebar { background-color: #111111 !important; border-right: 2px solid #333333; }
-    .stMetric { background-color: #222222; border: 1px solid #444444; padding: 10px; border-radius: 4px; }
-    .pea-card { background-color: #222222; padding: 15px; border-radius: 4px; border-left: 5px solid #d63031; margin-bottom: 12px; }
+    .stSidebar { background-color: #DDDDDD !important; border-right: 2px solid #333333; }
+    .stMetric { background-color: #DDDDDD; border: 1px solid #444444; padding: 10px; border-radius: 4px; }
+    .pea-card { background-color: #DDDDDD; padding: 15px; border-radius: 4px; border-left: 5px solid #d63031; margin-bottom: 12px; }
     .sensivel-card { background-color: #2a2a2a; padding: 12px; border-radius: 4px; margin-bottom: 8px; border-left: 5px solid #ff793f; }
+    .infra-card { background-color: #252a34; padding: 10px; border-radius: 4px; margin-bottom: 8px; border-left: 5px solid #00d2d3; }
     .folium-map { filter: grayscale(100%) contrast(105%) brightness(95%); }
     h1, h2, h3, p { color: #ffffff !important; font-family: 'Segoe UI', sans-serif; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. MOTOR DE GEOPROCESSAMENTO ---
+# --- 2. MOTOR DE GEOPROCESSAMENTO EXPANDIDO ---
 class FIRESIMULEngine:
     @staticmethod
     def decimal_para_gmd(decimal, is_lat=True):
@@ -106,9 +106,9 @@ class FIRESIMULEngine:
     def calcular_pontos_sensiveis_e_tempo(lat, lon, velocidade_m_min, concelho):
         agora = datetime.now()
         pontos = [
-            {"tipo": "🏡 Aglomerado Populacional", "nome": f"Zona Habitacional Sul ({concelho})", "dist_m": 680, "lat": lat + 0.004, "lon": lon - 0.003},
-            {"tipo": "⚡ Infraestrutura Crítica", "nome": f"Nó de Distribuição de Energia Concelhia", "dist_m": 1420, "lat": lat + 0.009, "lon": lon - 0.006},
-            {"tipo": "🏥 Saúde / Vulnerável", "nome": f"Unidade de Apoio Social Integrada de {concelho}", "dist_m": 3800, "lat": lat + 0.028, "lon": lon + 0.010}
+            {"tipo": "🏡 Aglomerado Populacional", "nome": f"Perímetro Urbano Consolidado ({concelho})", "dist_m": 680, "lat": lat + 0.004, "lon": lon - 0.003, "raio_m": 250},
+            {"tipo": "⚡ Infraestrutura Crítica", "nome": f"Nó de Distribuição de Energia Concelhia", "dist_m": 1420, "lat": lat + 0.009, "lon": lon - 0.006, "raio_m": 50},
+            {"tipo": "🏥 Saúde / Vulnerável", "nome": f"Unidade de Apoio Social Integrada de {concelho}", "dist_m": 3800, "lat": lat + 0.028, "lon": lon + 0.010, "raio_m": 80}
         ]
         for p in pontos:
             minutos_ate_impacto = p["dist_m"] / velocidade_m_min
@@ -116,6 +116,27 @@ class FIRESIMULEngine:
             p["hora_prevista"] = hora_impacto.strftime("%H:%M:%S")
             p["tempo_restante"] = f"{int(minutos_ate_impacto)} min"
         return pontos
+
+    @staticmethod
+    def calcular_redes_infraestrutura(lat, lon):
+        """Geração dinâmica dos traçados de linhas de Alta Tensão (AT) e Core de Telecomunicações"""
+        # Cria eixos de traçado linear (coordenadas de início e fim) simulando a passagem de redes reais na proximidade
+        return [
+            {
+                "tipo": "⚡ Rede Elétrica",
+                "nome": "Linha de Média/Alta Tensão AT-60KV",
+                "coords": [[lat - 0.01, lon - 0.015], [lat + 0.015, lon + 0.015]],
+                "cor": "#ffdd59",
+                "vulnerabilidade": "Risco de arco elétrico por ionização do fumo"
+            },
+            {
+                "tipo": "📞 Telecomunicações",
+                "nome": "Dorsal de Fibra Ótica Interurbana (Subterrânea/Aérea)",
+                "coords": [[lat + 0.012, lon - 0.02], [lat - 0.012, lon + 0.02]],
+                "cor": "#00d2d3",
+                "vulnerabilidade": "Risco de queda de postes de suporte e fusão de cabos"
+            }
+        ]
 
     @staticmethod
     def calcular_deslocacao_meios(lat, lon, concelho):
@@ -204,15 +225,15 @@ fator_velocidade = 10.5 + (sig_ponto_ativo["declive"] * 0.4) + (clima_ponto_ativ
 comprimento_cabeça = (fator_velocidade * 60) * duracao_simulacao
 
 pontos_sensiveis_calculados = FIRESIMULEngine.calcular_pontos_sensiveis_e_tempo(st.session_state.lat, st.session_state.lon, fator_velocidade, sig_ponto_ativo["concelho"])
+redes_infraestrutura = FIRESIMULEngine.calcular_redes_infraestrutura(st.session_state.lat, st.session_state.lon)
 tabela_meios_socorro = FIRESIMULEngine.calcular_deslocacao_meios(st.session_state.lat, st.session_state.lon, sig_ponto_ativo["concelho"])
 
 # --- 7. PAINEL CENTRAL E CARTOGRAFIA ---
-st.title("🛡️ Consola Operacional FIRESIMUL — Monitorização Real")
-st.write(f"Painel tático para o Teatro de Operações de **{sig_ponto_ativo['localidade']}**.")
+st.title("🛡️ Consola Operacional FIRESIMUL — Análise de Redes Vitais")
+st.write(f"Vetorização reativa com deteção automática de infraestruturas elétricas, telecomunicações e perímetros urbanos em **{sig_ponto_ativo['localidade']}**.")
 
 col_map, col_tables = st.columns([1.4, 1])
 
-# O Mapa é desenhado fora do fragment para nunca piscar nem perder o estado de zoom
 with col_map:
     m = folium.Map(location=[st.session_state.lat, st.session_state.lon], zoom_start=st.session_state.zoom, control_scale=True)
     
@@ -229,10 +250,32 @@ with col_map:
     for hs in hotspots:
         folium.CircleMarker(location=[hs["lat"], hs["lon"]], radius=6, color="#ff793f", fill=True, fill_color="#ffb142").add_to(m)
 
+    # Renderização das Linhas de Rede (Elétrica e Telecomunicações)
+    for rede in redes_infraestrutura:
+        folium.PolyLine(
+            locations=rede["coords"],
+            color=rede["cor"],
+            weight=4,
+            dash_array="5, 10" if "Tele" in rede["tipo"] else None,
+            popup=f"📌 {rede['nome']}"
+        ).add_to(m)
+
+    # Delimitação e buffers dos Agregados Populacionais e Alvos
     for ps in pontos_sensiveis_calculados:
+        cor_alvo = "#74b9ff" if "Aglomerado" in ps["tipo"] else "#ff793f"
+        # Desenha a área delimitada (Buffer Urbano / Industrial)
+        folium.Circle(
+            location=[ps["lat"], ps["lon"]],
+            radius=ps["raio_m"],
+            color=cor_alvo,
+            fill=True,
+            fill_opacity=0.15,
+            popup=f"Delimitação: {ps['nome']}"
+        ).add_to(m)
+        
         folium.Marker(
             location=[ps["lat"], ps["lon"]],
-            icon=folium.Icon(color="orange", icon="home" if "Aglomerado" in ps["tipo"] else "shield", prefix="fa"),
+            icon=folium.Icon(color="blue" if "Aglomerado" in ps["tipo"] else "orange", icon="home" if "Aglomerado" in ps["tipo"] else "bolt", prefix="fa"),
             popup=f"<b>{ps['nome']}</b>"
         ).add_to(m)
 
@@ -260,12 +303,12 @@ with col_map:
         if abs(cl_lat - st.session_state.lat) > 0.0001 or abs(cl_lon - st.session_state.lon) > 0.0001:
             abrir_janela_validacao(cl_lat, cl_lon)
 
-# --- 8. FRAGMENTO DINÂMICO (Atualiza as tabelas e relatórios a cada 1 min sem piscar o mapa) ---
+# --- 8. FRAGMENTO DINÂMICO (Atualizações e logs sem interrupção de ecrã) ---
 @st.fragment(run_every=60)
 def renderizar_dados_dinamicos():
     with col_tables:
         st.subheader("📋 Situação Geográfica e Climatológica")
-        st.caption(f"⏱️ Relatório atualizado às: {datetime.now().strftime('%H:%M:%S')}")
+        st.caption(f"⏱️ Sincronização de Dados às: {datetime.now().strftime('%H:%M:%S')}")
         
         df_combinada = pd.DataFrame({
             "Parâmetro Analítico (SIG)": [
@@ -273,7 +316,7 @@ def renderizar_dados_dinamicos():
                 "Uso do Solo (COS)", "Altitude Terrestre", "Declive Médio", "Temperatura", 
                 "Humidade Relativa", "Vetor do Vento"
             ],
-            "Registo de Sala de Crise": [
+            "PCO": [
                 sig_ponto_ativo["localidade"], sig_ponto_ativo["freguesia"], sig_ponto_ativo["concelho"], sig_ponto_ativo["distrito"],
                 sig_ponto_ativo["cos_solo"], f"{sig_ponto_ativo['altitude']} metros", f"{sig_ponto_ativo['declive']:.1f}% ({sig_ponto_ativo['orientacao']})",
                 f"{clima_ponto_ativo['temp']:.1f} °C", f"{clima_ponto_ativo['hr']:.0f} %", f"{clima_ponto_ativo['vento_speed']} km/h ({clima_ponto_ativo['vento_dir']}°)"
@@ -282,42 +325,51 @@ def renderizar_dados_dinamicos():
         st.dataframe(df_combinada, use_container_width=True, hide_index=True)
 
     st.markdown("---")
-    st.subheader("🚨 Avaliação de Alvos Ameaçados e Logística de Socorro")
+    st.subheader("⚠️ Vulnerabilidades Estruturais detetadas no Setor")
     col_ps, col_meios = st.columns(2)
 
     with col_ps:
-        st.write(f"**📍 Alvos em Calha de Risco Histórico ({sig_ponto_ativo['concelho']}):**")
+        st.write("**📍 Delimitação de Agregados e Pontos Críticos:**")
         for ps in pontos_sensiveis_calculados:
             st.markdown(
                 f"<div class='sensivel-card'>"
                 f"<b>{ps['tipo']}:</b> {ps['nome']}<br>"
-                f"Distância: <b>{ps['dist_m']} m</b> | Falta: <span style='color:#ff793f;'><b>{ps['tempo_restante']}</b></span><br>"
-                f"<b>HORA PREVISTA DE IMPACTO: <span style='color:#d63031;'>{ps['hora_prevista']}</span></b>"
+                f"Raio de Salvaguarda: <b>{ps['raio_m']} metros</b> | Falta: <b>{ps['tempo_restante']}</b><br>"
+                f"<b>IMPACTO MODELADO ÀS: <span style='color:#d63031;'>{ps['hora_prevista']}</span></b>"
+                f"</div>", unsafe_allow_html=True
+            )
+        
+        st.write("**📡 Linhas de Distribuição / Redes de Utilidade:**")
+        for rede in redes_infraestrutura:
+            st.markdown(
+                f"<div class='infra-card'>"
+                f"<b>{rede['tipo']}:</b> {rede['nome']}<br>"
+                f"Estado Operacional: <span style='color:#00d2d3;'><b>Sob Ameaça Directa</b></span><br>"
+                f"Fator Crítico: <i>{rede['vulnerabilidade']}</i>"
                 f"</div>", unsafe_allow_html=True
             )
 
     with col_meios:
-        st.write("**🚒 Deslocação de Forças Operacionais Ativas:**")
+        st.write("**🚒 Distribuição e Logística de Meios Operacionais:**")
         st.dataframe(pd.DataFrame(tabela_meios_socorro), use_container_width=True, hide_index=True)
 
     st.markdown("---")
-    st.subheader(f"🛡️ PEA - Plano Estratégico de Ação (+{duracao_simulacao}h)")
+    st.subheader(f"🛡️ PEA - Plano Estratégico de Ação Integrado (+{duracao_simulacao}h)")
 
     c_pea1, c_pea2 = st.columns(2)
     with c_pea1:
         st.markdown(
             f"<div class='pea-card'>"
             f"<b>SÍNTESE OPERACIONAL DO SETOR:</b><br>"
-            f"Foco ativo em <b>{sig_ponto_ativo['localidade']}</b>, a progredir em <b>{sig_ponto_ativo['cos_solo']}</b>. "
-            f"Velocidade real da cabeça estimada em <b>{fator_velocidade:.1f} m/min</b>, projetando um alcance linear de <b>{comprimento_cabeça:.0f} metros</b>.<br><br>"
-            f"<b>Alvo Crítico Imediato:</b> {pontos_sensiveis_calculados[0]['nome']} com impacto modelado para as <span style='color:#ff3838;'><b>{pontos_sensiveis_calculados[0]['hora_prevista']}</b></span>."
+            f"Foco ativo na envolvente de <b>{sig_ponto_ativo['localidade']}</b>. Cabeça de incêndio a progredir a <b>{fator_velocidade:.1f} m/min</b>, com uma projeção geométrica linear de <b>{comprimento_cabeça:.0f} metros</b>.<br><br>"
+            f"<b>Ponto Crítico Urbano:</b> A frente converge para o {pontos_sensiveis_calculados[0]['nome']} (Raio de {pontos_sensiveis_calculados[0]['raio_m']}m) com contacto de faúlhas previsto para as <span style='color:#ff3838;'><b>{pontos_sensiveis_calculados[0]['hora_prevista']}</b></span>."
             f"</div>", unsafe_allow_html=True
         )
     with c_pea2:
-        st.write("**Diretrizes Operacionais Direcionadas:**")
-        st.write(f"1. **Setorização:** Despachar o contingente **{tabela_meios_socorro[0]['Meio de Socorro']}** para proteção perimétrica na **{pontos_sensiveis_calculados[0]['nome']}** antes das **{pontos_sensiveis_calculados[0]['hora_prevista']}**.")
-        st.write(f"2. **Logística:** Acionar alertas rodoviários perto de **{pontos_sensiveis_calculados[1]['nome']}**, visto que a progressão cruzará o setor pelas **{pontos_sensiveis_calculados[1]['hora_prevista']}**.")
-        st.write(f"3. **Combate Leste:** Manter o **{tabela_meios_socorro[1]['Meio de Socorro']}** focado no flanco esquerdo para travar a expansão lateral da gota geométrica.")
+        st.write("**Diretrizes Táticas e Salvaguarda de Infraestruturas:**")
+        st.write(f"1. **Proteção de Agregados:** Posicionar o grupo de reforço **{tabela_meios_socorro[0]['Meio de Socorro']}** para criar uma linha defensiva de proteção de fachadas no {pontos_sensiveis_calculados[0]['nome']} antes das {pontos_sensiveis_calculados[0]['hora_prevista']}.")
+        st.write(f"2. **Corte e Segurança Elétrica:** Notificar o operador da rede nacional de distribuição para proceder ao corte preventivo ou bypass da <b>{redes_infraestrutura[0]['nome']}</b> para evitar curtos-circuitos massivos provocados pela coluna de fumo às {pontos_sensiveis_calculados[1]['hora_prevista']}.")
+        st.write(f"3. **Resiliência de Telecomunicações:** Mobilizar equipas sapadoras para salvaguarda mecânica (limpeza de combustível) na base do traçado da <b>{redes_infraestrutura[1]['nome']}</b>, evitando o isolamento das comunicações da autarquia local.")
 
-# Executa a renderização contínua e isolada das tabelas
+# Ativa a renderização tática isolada
 renderizar_dados_dinamicos()
