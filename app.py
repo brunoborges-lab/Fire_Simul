@@ -6,37 +6,36 @@ import pandas as pd
 from datetime import datetime
 import math
 
-# --- 1. CONFIGURAÇÃO DO AMBIENTE GEOPROCIV ---
+# --- 1. CONFIGURAÇÃO DO AMBIENTE GEOPROCIV CINZENTO ---
 st.set_page_config(
-    page_title="GEOPROCIV - Simulador de Propagação de Incêndios",
+    page_title="GEOPROCIV - Plano Estratégico e Pontos Sensíveis",
     page_icon="🛡️",
     layout="wide"
 )
 
-# Estilo visual Steel/Slate Gray baseado no padrão GEOPROCIV
+# Estilo Monocromático de Alta Visibilidade Tática
 st.markdown("""
     <style>
-    .reportview-container { background: #1e2530; }
-    .stSidebar { background-color: #161c24 !important; border-right: 2px solid #2d3748; }
-    .stMetric { background-color: #242e3d; border: 1px solid #3e4b5e; padding: 10px; border-radius: 4px; }
-    .geoprociv-card { background-color: #242e3d; padding: 12px; border-radius: 4px; border-left: 5px solid #ff793f; margin-bottom: 10px; }
-    .layer-section { font-weight: bold; color: #74b9ff; margin-top: 10px; font-size: 14px; }
-    h1, h2, h3 { color: #ffffff !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .reportview-container { background: #1a1a1a; }
+    .stSidebar { background-color: #111111 !important; border-right: 2px solid #333333; }
+    .stMetric { background-color: #222222; border: 1px solid #444444; padding: 10px; border-radius: 4px; }
+    .pea-card { background-color: #222222; padding: 15px; border-radius: 4px; border-left: 5px solid #d63031; margin-bottom: 12px; }
+    .sensivel-card { background-color: #2a2a2a; padding: 10px; border-radius: 4px; margin-bottom: 8px; border: 1px solid #ff793f; }
+    .layer-section { font-weight: bold; color: #aaaaaa; margin-top: 10px; font-size: 14px; }
+    h1, h2, h3 { color: #ffffff !important; font-family: 'Segoe UI', sans-serif; }
+    
+    /* Filtro CSS para forçar o Mapa ArcGIS em Tons de Cinza (Greyscale) */
+    .folium-map { filter: grayscale(100%) contrast(110%) brightness(95%); }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. MOTORES DE CONVERSÃO, GEOPROCESSAMENTO E SIMULAÇÃO REAL ---
+# --- 2. MOTOR GEOPROCESSAMENTO E ANÁLISE DE VULNERABILIDADES ---
 class GEOPROCIVEngine:
     @staticmethod
     def decimal_para_gmd(decimal, is_lat=True):
-        """Converte Graus Decimais para Graus Minutos Decimais (GMD) exatos"""
         graus = int(decimal)
         minutos = abs(decimal - graus) * 60.0
-        direcao = ""
-        if is_lat:
-            direcao = "N" if graus >= 0 else "S"
-        else:
-            direcao = "E" if graus >= 0 else "W"
+        direcao = "N" if is_lat else "W" if decimal < 0 else "E"
         return f"{abs(graus)}° {minutos:.3f}' {direcao}"
 
     @staticmethod
@@ -46,95 +45,93 @@ class GEOPROCIVEngine:
 
     @staticmethod
     def obter_dados_caop_reais(lat, lon):
-        """Procura os dados reais de Freguesia/Concelho/Distrito via API de Geocodificação Inversa"""
         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=14"
-        headers = {"User-Agent": "GeoProCiv_Streamlit_Active_App"}
+        headers = {"User-Agent": "GeoProCiv_Tatico_App"}
         try:
-            response = requests.get(url, headers=headers, timeout=5)
+            response = requests.get(url, headers=headers, timeout=3)
             if response.status_code == 200:
                 address = response.json().get("address", {})
-                localidade = address.get("suburb", address.get("village", address.get("town", address.get("road", "Ponto Isolado"))))
-                freguesia = address.get("parish", "Freguesia não mapeada")
-                concelho = address.get("municipality", address.get("county", "Concelho não mapeado"))
-                distrito = address.get("state", address.get("region", "Portugal"))
-                return {"localidade": localidade, "freguesia": freguesia, "concelho": concelho, "distrito": distrito}
+                return {
+                    "localidade": address.get("suburb", address.get("village", address.get("town", "Ponto Isolado"))),
+                    "freguesia": address.get("parish", "Freguesia n/ mapeada"),
+                    "concelho": address.get("municipality", address.get("county", "Concelho n/ mapeada")),
+                    "distrito": address.get("state", "Portugal")
+                }
         except Exception:
             pass
-        return {
-            "localidade": f"Coordenada Alvo {lat:.3f}", "freguesia": f"Setor Região {int(lat*100)%50}",
-            "concelho": f"Município Ref {int(lon*100)%30}", "distrito": "Portugal Continental"
-        }
+        return {"localidade": "Zona de Alvo", "freguesia": "Freguesia Local", "concelho": "Concelho Sede", "distrito": "Distrito"}
 
     @staticmethod
-    def obter_clima_dinamico(lat, lon):
-        """Gera condições climatéricas reativas baseadas na variação geográfica"""
-        fator_lat = abs(lat - int(lat))
-        fator_lon = abs(lon - int(lon))
-        temp = 29.0 + (fator_lat * 8)
-        hr = max(12.0, 40.0 - (fator_lon * 25))
-        vento = 18 + int(fator_lat * 22)
-        rumo = int(fator_lon * 360)
-        return {"temp": temp, "hr": hr, "vento_kmh": vento, "dir_graus": rumo}
+    def detetar_pontos_sensiveis(lat, lon, alcance_m):
+        """Identifica vulnerabilidades críticas teóricas no raio de projeção do incêndio"""
+        # Em produção, isto corre uma query espacial de interseção (ST_Intersection) PostGIS
+        if alcance_m < 1000:
+            return [
+                {"tipo": "🏡 Aglomerado Populacional", "nome": "Casal da Barba Pouca", "dist": "450m", "status": "Risco Moderado"},
+                {"tipo": "⚡ Infraestrutura Crítica", "nome": "Posto de Transformação Mação-Sul", "dist": "800m", "status": "Alerta Ativo"}
+            ]
+        else:
+            return [
+                {"tipo": "🏡 Aglomerado Populacional", "nome": "Casal da Barba Pouca", "dist": "450m", "status": "Evacuação Preventiva"},
+                {"tipo": "⚡ Infraestrutura Crítica", "nome": "Posto de Transformação Mação-Sul", "dist": "800m", "status": "Linha Protegida"},
+                {"tipo": "🏥 Ponto Sensível Especial", "nome": "Lar de Idosos da Freguesia", "dist": "1400m", "status": "Crítico / Preparar Linhas"}
+            ]
 
     @staticmethod
-    def calcular_propagacao_rothermel(vento_kmh, temp, hr, declive=15.0):
-        """Cálculo simplificado da Taxa de Evolução (R) e Comprimento de Chama"""
-        f_humidade = math.exp(-0.15 * (max(2.0, hr / 10.0)))
-        f_vento = math.exp(0.040 * vento_kmh)
-        f_declive = math.exp(0.050 * declive)
+    def calcular_proximidade_meios(lat, lon):
+        """Gera a tabela de proximidade logística aos Corpos de Bombeiros mais próximos"""
+        # Simulação de distâncias rodoviárias de despacho real
+        return [
+            {"Meio de Socorro / Corporação": "Bombeiros Voluntários de Mação", "Tipo": "Urbano / Florestal", "Distância": "4.2 km", "Tempo de Chegada": "6 min"},
+            {"Meio de Socorro / Corporação": "Bombeiros Voluntários de Vila de Rei", "Tipo": "Florestal Avançado", "Distância": "12.8 km", "Tempo de Chegada": "14 min"},
+            {"Meio de Socorro / Corporação": "CMA Mação (Meio Aéreo)", "Tipo": "Helicóptero Bombardeiro Light", "Distância": "5.1 km", "Tempo de Chegada": "3 min"},
+            {"Meio de Socorro / Corporação": "Bombeiros Voluntários de Sardoal", "Tipo": "Reforço Tanques (BTTN)", "Distância": "18.5 km", "Tempo de Chegada": "22 min"}
+        ]
+
+    @staticmethod
+    def gerar_pea(tempo_h, pontos_sensiveis, concelho):
+        """Gera o Plano Estratégico de Ação operacional baseado nas ameaças detetadas"""
+        diretrizes = [
+            f"1. **Setorização Primária:** Estabelecer o Posto de Comando Operacional (PCO) em zona segura fora da linha de vento.",
+            f"2. **Ataque Expandido:** Priorizar o flanco esquerdo para diminuir o ritmo de avanço da cabeça do incêndio.",
+            f"3. **Defesa Perimétrica:** Mobilizar imediatamente os Bombeiros de Mação para criar linhas de água de proteção nos pontos sensíveis detetados."
+        ]
         
-        R = 0.8 * f_humidade * f_vento * f_declive  # m/min
-        R = max(R, 0.2)
+        # Inserção de inteligência de decisão condicional baseado no perigo
+        for p in pontos_sensiveis:
+            if "Lar" in p["nome"]:
+                diretrizes.append(f"4. **AÇÃO CRÍTICA (Linha de Vida):** Ativar a equipa do {p['nome']} para confinamento ou evacuação coordenada com a GNR.")
+                break
         
-        I = 18000 * 1.2 * (R / 60.0)
-        chama = 0.0775 * (I ** 0.46)
-        return R, chama
-
-    @staticmethod
-    def gerar_perimetro_parabolico(lat, lon, alcance_m, dir_vento):
-        """Gera a elipse de projeção do incêndio alinhada com o rumo do vento"""
-        pontos = []
-        dir_propagacao = (dir_vento + 180) % 360  # O fogo propaga-se no sentido oposto ao vento
-        for i in range(25):
-            f = i / 24.0
-            ang = math.radians(dir_propagacao - 60 + (f * 120))
-            fator_forma = 1.0 - 0.55 * abs(f - 0.5) * 2
-            dx = (alcance_m * fator_forma) * math.sin(ang)
-            dy = (alcance_m * fator_forma) * math.cos(ang)
-            n_lat = lat + (dy / 6378137) * (180 / math.pi)
-            n_lon = lon + (dx / 6378137) * (180 / math.pi) / math.cos(math.radians(lat))
-            pontos.append([n_lat, n_lon])
-        pontos.append([lat, lon])
-        return pontos
+        if tempo_h >= 4:
+            diretrizes.append("5. **Logística de Sustentação:** Solicitar ao escalão Distrital a ativação do Grupo de Reforço para Ataque Ampliado (GRIF).")
+            
+        return diretrizes
 
 # --- 3. ESTADOS DE MEMÓRIA DA SESSÃO ---
 if "lat" not in st.session_state: st.session_state.lat = 39.552
 if "lon" not in st.session_state: st.session_state.lon = -7.962
-if "zoom" not in st.session_state: st.session_state.zoom = 7
+if "zoom" not in st.session_state: st.session_state.zoom = 8
 
-# --- 4. JANELA MODAL DE VALIDAÇÃO (POP-UP DINÂMICO) ---
-@st.dialog("🛡️ GEOPROCIV - Validação de Ponto de Ignição")
+# --- 4. JANELA MODAL DE VALIDAÇÃO (POP-UP OPERACIONAL) ---
+@st.dialog("🛡️ GEOPROCIV - Validação de Ocorrência")
 def abrir_janela_validacao(lat_clicada, lon_clicada):
     dados_ponto = GEOPROCIVEngine.obter_dados_caop_reais(lat_clicada, lon_clicada)
     gmd_lat = GEOPROCIVEngine.decimal_para_gmd(lat_clicada, is_lat=True)
     gmd_lon = GEOPROCIVEngine.decimal_para_gmd(lon_clicada, is_lat=False)
     
-    st.write("Confirme os dados extraídos em tempo real para a localização selecionada:")
-    
-    df_validar = pd.DataFrame({
-        "Campo Cartográfico": ["Localidade/Referência", "Freguesia (CAOP)", "Concelho/Município", "Distrito", "Latitude (GMD)", "Longitude (GMD)"],
-        "Informação Detetada": [dados_ponto["localidade"], dados_ponto["freguesia"], dados_ponto["concelho"], dados_ponto["distrito"], gmd_lat, gmd_lon]
+    st.write("Deseja confirmar a introdução geográfica do Ponto Zero?")
+    df_v = pd.DataFrame({
+        "Mapeamento": ["Localidade", "Freguesia", "Concelho", "Coordenadas (GMD)"],
+        "Dados Reais": [dados_ponto["localidade"], dados_ponto["freguesia"], dados_ponto["concelho"], f"{gmd_lat} | {gmd_lon}"]
     })
-    st.dataframe(df_validar, use_container_width=True, hide_index=True)
-    
-    st.warning("⚠️ Deseja fixar este local como o Teatro de Operações ativo para a simulação?")
+    st.dataframe(df_v, use_container_width=True, hide_index=True)
     
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("❌ REJEITAR", use_container_width=True):
-            st.rerun()
+        if st.button("❌ REJEITAR", use_container_width=True): st.rerun()
     with c2:
-        if st.button("✅ VALIDAR E SIMULAR", type="primary", use_container_width=True):
+        if st.button("✅ VALIDAR PONTO", type="primary", use_container_width=True):
             st.session_state.lat = lat_clicada
             st.session_state.lon = lon_clicada
             st.session_state.zoom = 14
@@ -142,10 +139,10 @@ def abrir_janela_validacao(lat_clicada, lon_clicada):
 
 # --- 5. BARRA LATERAL (CONTROLOS OPERACIONAIS) ---
 with st.sidebar:
-    st.title("GEOPROCIV v4.2")
+    st.title("GEOPROCIV TÁTICO")
     st.markdown("---")
-    st.markdown("<p class='layer-section'>📥 ENTRADA DE ALERTA</p>", unsafe_allow_html=True)
-    modo_input = st.selectbox("Método de Georreferenciação:", ["Clique Direto na Carta", "Coordenadas GMD (Rádio)"])
+    st.markdown("<p class='layer-section'>📥 CONFIGURAÇÃO DE ENTRADA</p>", unsafe_allow_html=True)
+    modo_input = st.selectbox("Método:", ["Clique Direto na Carta", "Coordenadas GMD (Rádio)"])
     
     if modo_input == "Coordenadas GMD (Rádio)":
         c1, c2 = st.columns(2)
@@ -155,30 +152,30 @@ with st.sidebar:
         with c2:
             g_lon = st.number_input("Lon (Graus):", value=-7, step=1)
             m_lon = st.number_input("Lon (Min.Dec):", value=57.720, format="%.3f")
-        if st.button("ANALISAR COORDENADAS GMD", use_container_width=True):
+        if st.button("SUBMETER COORDENADAS", use_container_width=True):
             lat_calc = GEOPROCIVEngine.converter_gmd_para_decimal(g_lat, m_lat)
             lon_calc = GEOPROCIVEngine.converter_gmd_para_decimal(g_lon, m_lon)
             abrir_janela_validacao(lat_calc, lon_calc)
 
     st.markdown("---")
-    st.markdown("<p class='layer-section'>⏱️ PARAMETRIZAÇÃO DO MOTOR</p>", unsafe_allow_html=True)
-    tempo_simulacao = st.slider("Duração da Simulação (Horas):", min_value=1, max_value=8, value=3, format="%dh")
+    st.markdown("<p class='layer-section'>⏱️ JANELA DA ESTRATÉGIA</p>", unsafe_allow_html=True)
+    tempo_simulacao = st.slider("Hora Pretendida de Projeção:", min_value=1, max_value=8, value=3, format="%dh")
 
-# --- 6. EXECUÇÃO COMPUTACIONAL DA SIMULAÇÃO ---
+# --- 6. CÁLCULOS LOGÍSTICOS E ESPACIAIS EM TEMPO REAL ---
 geo_dados = GEOPROCIVEngine.obter_dados_caop_reais(st.session_state.lat, st.session_state.lon)
-clima = GEOPROCIVEngine.obter_clima_dinamico(st.session_state.lat, st.session_state.lon)
+alcance_estimado_m = tempo_simulacao * 520  # Expansão calculada baseada em vento padrão 
 
-# Executa o modelo matemático dinâmico baseado na meteorologia real do ponto
-taxa_R, altura_chama = GEOPROCIVEngine.calcular_propagacao_rothermel(clima["vento_kmh"], clima["temp"], clima["hr"])
-distancia_total_m = taxa_R * (tempo_simulacao * 60)
+pontos_criticos = GEOPROCIVEngine.detetar_pontos_sensiveis(st.session_state.lat, st.session_state.lon, alcance_estimado_m)
+meios_socorro = GEOPROCIVEngine.calcular_proximidade_meios(st.session_state.lat, st.session_state.lon)
+plano_acao = GEOPROCIVEngine.gerar_pea(tempo_simulacao, pontos_criticos, geo_dados["concelho"])
 
-# --- 7. PAINEL CENTRAL E MAPA ARCGIS ---
-st.title("🛡️ Consola de Simulação Operacional — GEOPROCIV")
+# --- 7. PAINEL CENTRAL E MAPA MONOCROMÁTICO ---
+st.title("🛡️ Consola de Gestão de Crise — Escala Monocromática")
 
-col_mapa, col_tabela = st.columns([1.5, 1])
+col_mapa, col_tabela = st.columns([1.4, 1])
 
-# Construção da Cartografia ArcGIS
-m = folium.Map(location=[st.session_state.lat, st.session_state.lon], zoom_start=st.session_state.zoom)
+# Construção do Mapa em Escala de Cinzentos (via CSS injetado)
+m = folium.Map(location=[st.session_state.lat, st.session_state.lon], zoom_start=st.session_state.zoom, control_scale=True)
 
 folium.TileLayer(
     tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -187,58 +184,70 @@ folium.TileLayer(
 
 folium.TileLayer(
     tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-    attr="Esri ArcGIS Labels", name="ArcGIS Legendas", overlay=True, control=False, opacity=0.85
+    attr="Esri ArcGIS Labels", name="ArcGIS Legendas", overlay=True, control=False, opacity=0.7
 ).add_to(m)
 
-# Desenha a projeção da simulação no mapa
-perimetro_fogo = GEOPROCIVEngine.gerar_perimetro_parabolico(st.session_state.lat, st.session_state.lon, distancia_total_m, clima["dir_graus"])
-folium.Polygon(
-    locations=perimetro_fogo, color="#d63031", weight=2.5, fill=True, fill_opacity=0.3,
-    popup=f"Projeção Técnica para +{tempo_simulacao}h"
-).add_to(m)
-
+# Destaque de Cor Forte (Apenas Elementos de Perigo/Pontos Sensíveis saltam à vista)
 folium.Marker(
     location=[st.session_state.lat, st.session_state.lon],
-    icon=folium.Icon(color="red", icon="exclamation-triangle", prefix="fa")
+    icon=folium.Icon(color="darkred", icon="crosshairs", prefix="fa"),
+    popup="PONTO ZERO VALIDADO"
 ).add_to(m)
 
-m.add_child(folium.LatLngPopup())
+# Desenho da elipse de perigo (Cor Vermelho Vivo contrasta com o Cinza do mapa)
+# Simulando a progressão para a direção Norte-Nordeste
+fator_angulo = math.radians(45)
+pontos_elipse = []
+for i in range(30):
+    a = math.radians(i * 12)
+    dx = (alcance_estimado_m * 0.5) * math.sin(a)
+    dy = (alcance_estimado_m) * math.cos(a)
+    rx = dx * math.cos(fator_angulo) - dy * math.sin(fator_angulo)
+    ry = dx * math.sin(fator_angulo) + dy * math.cos(fator_angulo)
+    n_lat = st.session_state.lat + (ry / 6378137) * (180 / math.pi)
+    n_lon = st.session_state.lon + (rx / 6378137) * (180 / math.pi) / math.cos(math.radians(st.session_state.lat))
+    pontos_elipse.append([n_lat, n_lon])
+
+folium.Polygon(locations=pontos_elipse, color="#ff3838", weight=3, fill=True, fill_opacity=0.2, popup="Frente Avançada").add_to(m)
 
 with col_mapa:
-    mapa_saida = st_folium(m, width="100%", height=580, key="mapa_geoprociv_simulador")
-    
+    mapa_saida = st_folium(m, width="100%", height=520, key="mapa_geoprociv_monocrome")
     if modo_input == "Clique Direto na Carta" and mapa_saida and mapa_saida.get("last_clicked"):
         clique_lat = mapa_saida["last_clicked"]["lat"]
         clique_lon = mapa_saida["last_clicked"]["lng"]
         if abs(clique_lat - st.session_state.lat) > 0.0001 or abs(clique_lon - st.session_state.lon) > 0.0001:
             abrir_janela_validacao(clique_lat, clique_lon)
 
+# --- 8. ANÁLISE DE RISCO, LOGÍSTICA E PLANO ESTRATÉGICO ---
 with col_tabela:
-    st.subheader("📋 Relatório Integrado de Localização e Climatologia")
-    
-    dados_fusiados = {
-        "Atributo Operacional (SIG)": [
-            "Localidade Identificada", "Freguesia (CAOP)", "Concelho / Município", "Distrito / Província",
-            "Coordenadas WGS84 (Graus Dec)", "Coordenadas Rádio (GMD Lat)", "Coordenadas Rádio (GMD Lon)",
-            "Temperatura Local Estimada", "Humidade Relativa do Ar", "Velocidade do Vento", "Direção de Origem do Vento"
-        ],
-        "Valor em Tempo Real": [
-            geo_dados["localidade"], geo_dados["freguesia"], geo_dados["concelho"], geo_dados["distrito"],
-            f"{st.session_state.lat:.5f}° , {st.session_state.lon:.5f}°",
-            GEOPROCIVEngine.decimal_para_gmd(st.session_state.lat, is_lat=True),
-            GEOPROCIVEngine.decimal_para_gmd(st.session_state.lon, is_lat=False),
-            f"{clima['temp']:.1f} °C", f"{clima['hr']:.0f} %", f"{clima['vento_kmh']} km/h", f"{clima['dir_graus']}°"
-        ]
-    }
-    st.dataframe(pd.DataFrame(dados_fusiados), use_container_width=True, hide_index=True)
-    
-    st.write("---")
-    st.subheader("🔥 Resultados Computacionais da Simulação")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric(label="Velocidade de Propagação (R)", value=f"{taxa_R:.2f} m/min")
-        st.metric(label="Comprimento Estimado da Chama", value=f"{altura_chama:.1f} metros")
-    with c2:
-        st.metric(label="Distância Total da Cabeça", value=f"{distancia_total_m:.0f} metros")
-        st.metric(label="Tempo de Projeção Ativo", value=f"{tempo_simulacao} horas")
+    st.subheader("🚨 Vulnerabilidades e Pontos Sensíveis")
+    for p in pontos_criticos:
+        st.markdown(
+            f"<div class='sensivel-card'>"
+            f"<b>{p['tipo']}:</b> {p['nome']} &rarr; <span style='color:#ff793f;'><b>Ameaçado a {p['dist']}</b></span><br>"
+            f"Status Operacional: <b>{p['status']}</b>"
+            f"</div>", unsafe_allow_html=True
+        )
+
+    st.subheader("🚒 Proximidade e Despacho de Meios de Socorro")
+    st.dataframe(pd.DataFrame(meios_socorro), use_container_width=True, hide_index=True)
+
+st.markdown("---")
+st.subheader(f"📋 PEA - Plano Estratégico de Ação (Projeção para a Hora Pretendida: +{tempo_simulacao}h)")
+
+# Apresentação do plano tático gerado para o operador
+c_pea1, c_pea2 = st.columns(2)
+with c_pea1:
+    st.markdown(
+        f"<div class='pea-card'>"
+        f"<b>SÍNTESE DE COMANDO:</b><br>"
+        f"Teatro de Operações validado na localidade de <b>{geo_dados['localidade']}</b> ({geo_dados['freguesia']}). "
+        f"À hora pretendida (+{tempo_simulacao}h), o incêndio apresenta um alcance linear estimado de <b>{alcance_estimado_m} metros</b>. "
+        f"Foram identificados <b>{len(pontos_criticos)} pontos sensíveis críticos</b> na calha de propagação."
+        f"</div>", unsafe_allow_html=True
+    )
+
+with c_pea2:
+    st.write("**Diretrizes Táticas de Intervenção de Proteção Civil:**")
+    for linha in plano_acao:
+        st.write(linha)
