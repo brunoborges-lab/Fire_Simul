@@ -8,7 +8,7 @@ import math
 
 # --- 1. CONFIGURAÇÃO DO AMBIENTE GEOPROCIV CINZENTO ---
 st.set_page_config(
-    page_title="GEOPROCIV - Plano Estratégico e Pontos Sensíveis",
+    page_title="FIRESIMUL - Simulador de Incêndios Rurais",
     page_icon="🛡️",
     layout="wide"
 )
@@ -17,10 +17,10 @@ st.set_page_config(
 st.markdown("""
     <style>
     .reportview-container { background: #1a1a1a; }
-    .stSidebar { background-color: #111111 !important; border-right: 2px solid #333333; }
-    .stMetric { background-color: #222222; border: 1px solid #444444; padding: 10px; border-radius: 4px; }
-    .pea-card { background-color: #222222; padding: 15px; border-radius: 4px; border-left: 5px solid #d63031; margin-bottom: 12px; }
-    .sensivel-card { background-color: #2a2a2a; padding: 10px; border-radius: 4px; margin-bottom: 8px; border: 1px solid #ff793f; }
+    .stSidebar { background-color: #FFFFFF !important; border-right: 2px solid #333333; }
+    .stMetric { background-color: #DDDDDD; border: 1px solid #444444; padding: 10px; border-radius: 4px; }
+    .pea-card { background-color: #DDDDDD; padding: 15px; border-radius: 4px; border-left: 5px solid #d63031; margin-bottom: 12px; }
+    .sensivel-card { background-color: #FFFFFF; padding: 10px; border-radius: 4px; margin-bottom: 8px; border: 1px solid #ff793f; }
     .layer-section { font-weight: bold; color: #aaaaaa; margin-top: 10px; font-size: 14px; }
     h1, h2, h3 { color: #ffffff !important; font-family: 'Segoe UI', sans-serif; }
     
@@ -46,7 +46,7 @@ class GEOPROCIVEngine:
     @staticmethod
     def obter_dados_caop_reais(lat, lon):
         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=14"
-        headers = {"User-Agent": "GeoProCiv_Tatico_App"}
+        headers = {"User-Agent": "FireSimul"}
         try:
             response = requests.get(url, headers=headers, timeout=3)
             if response.status_code == 200:
@@ -114,7 +114,7 @@ if "lon" not in st.session_state: st.session_state.lon = -7.962
 if "zoom" not in st.session_state: st.session_state.zoom = 8
 
 # --- 4. JANELA MODAL DE VALIDAÇÃO (POP-UP OPERACIONAL) ---
-@st.dialog("🛡️ GEOPROCIV - Validação de Ocorrência")
+@st.dialog("🛡️ Validação de Ocorrência")
 def abrir_janela_validacao(lat_clicada, lon_clicada):
     dados_ponto = GEOPROCIVEngine.obter_dados_caop_reais(lat_clicada, lon_clicada)
     gmd_lat = GEOPROCIVEngine.decimal_para_gmd(lat_clicada, is_lat=True)
@@ -139,12 +139,12 @@ def abrir_janela_validacao(lat_clicada, lon_clicada):
 
 # --- 5. BARRA LATERAL (CONTROLOS OPERACIONAIS) ---
 with st.sidebar:
-    st.title("GEOPROCIV TÁTICO")
+    st.title("FIRESIMUL TÁTICO")
     st.markdown("---")
     st.markdown("<p class='layer-section'>📥 CONFIGURAÇÃO DE ENTRADA</p>", unsafe_allow_html=True)
     modo_input = st.selectbox("Método:", ["Clique Direto na Carta", "Coordenadas GMD (Rádio)"])
     
-    if modo_input == "Coordenadas GMD (Rádio)":
+    if modo_input == "Coordenadas GMD (SIRESP)":
         c1, c2 = st.columns(2)
         with c1:
             g_lat = st.number_input("Lat (Graus):", value=39, step=1)
