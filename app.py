@@ -97,7 +97,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("<p class='layer-section'>⏱️ PARÂMETROS TEMPORAIS</p>", unsafe_allow_html=True)
-    tempo_projeção = st.slider("Janela de Previsão Dinâmica:", min_value=1, max_value=6, value=2, postfix="h")
+    tempo_projeção = st.slider("Janela de Previsão Dinâmica:", min_value=1, max_value=6, value=2, format="%dh")
 
 # --- 5. PAINEL CENTRAL E TABELA DE SITUAÇÃO COMBINADA ---
 st.title("🛡️ Consola Operacional GEOPROCIV — ANPC / Municípios")
