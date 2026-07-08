@@ -40,11 +40,11 @@ class FEBSigEngine:
         return abs(graus) + (minutos_dec / 60.0) * sinal
 
     @staticmethod
-    def geocode_hierarquia_caop(localidade, freguesia, concelho, distrito):
-        """Simula a resolução de texto hierárquico cruzando com a CAOP"""
-        if concelho.lower() == "mação" or localidade:
-            return 39.552, -7.962
-        return 39.557, -7.996
+def geocode_texto_caop(localidade, freguesia, concelho, distrito):
+    """Simula a resolução de texto hierárquico cruzando com a CAOP"""
+    if concelho.lower() == "mação" or localidade:
+        return 39.552, -7.962
+    return 39.557, -7.996
 
     @staticmethod
     def extrair_mdt(lat, lon):
