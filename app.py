@@ -33,11 +33,11 @@ class FEBSigEngine:
         4: {"nome": "COS 2.1.1 - Culturas Arvenses Sequeiro (Pasto Seco)", "carga": 2.5, "r_base": 1.80}
     }
 
-    @staticmethod
-    def converter_gmd_para_decimal(graus, minutos_dec):
-        """Conversão de Graus Minutos.Decimais para Graus Decimais (padrão Folium/ArcGIS)"""
-        sinal = -1 if graus < 0 else 1
-        return abs(graus) + (minutos_dec / 60.0) * sinal
+@staticmethod
+def converter_gmd_para_decimal(graus, minutos_dec):
+    """Conversão de Graus Minutos.Decimais para Graus Decimais (padrão Folium/ArcGIS)"""
+    sinal = -1 if graus < 0 else 1
+    return abs(graus) + (minutos_dec / 60.0) * sinal
 
     @staticmethod
 def geocode_texto_caop(localidade, freguesia, concelho, distrito):
