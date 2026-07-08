@@ -8,7 +8,7 @@ import math
 
 # --- 1. CONFIGURAÇÃO INDUSTRIAL DA INTERFACE ---
 st.set_page_config(
-    page_title="Despacho e Análise SIG ArcGIS",
+    page_title="FEB Monitorização - Despacho e Análise SIG ArcGIS",
     page_icon="🚒",
     layout="wide"
 )
