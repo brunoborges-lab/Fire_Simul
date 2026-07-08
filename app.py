@@ -5,17 +5,14 @@ import folium
 import pandas as pd
 import math
 from datetime import datetime, timedelta
-from streamlit_autorefresh import st_autorefresh
+import time
 
 # --- 1. CONFIGURAÇÃO OPERACIONAL FIRESIMUL ---
 st.set_page_config(
-    page_title="FIRESIMUL v5.6 - Monitorização Dinâmica",
+    page_title="FIRESIMUL v5.6 - Monitorização Estável",
     page_icon="🛡️",
     layout="wide"
 )
-
-# Atualização contínua a cada 60 segundos (1 minuto)
-st_autorefresh(interval=200000, key="firesimul_refresh_counter")
 
 # Estilo Visual Tático de Sala de Crise
 st.markdown("""
@@ -30,7 +27,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. MOTOR DE GEOPROCESSAMENTO E GERAÇÃO DINÂMICA DE DADOS ---
+# --- 2. MOTOR DE GEOPROCESSAMENTO ---
 class FIRESIMULEngine:
     @staticmethod
     def decimal_para_gmd(decimal, is_lat=True):
@@ -62,11 +59,9 @@ class FIRESIMULEngine:
 
     @staticmethod
     def cruzar_dados_sig_reais(lat, lon):
-        """Inversão geográfica real via API + Cálculo algorítmico do MDT/COS com base na coordenada exacta"""
         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=14"
         headers = {"User-Agent": "FireSimul_Advanced_Engine_v56"}
         
-        # Semente gerada a partir das coordenadas para que os cálculos simulem o terreno local de forma fluida
         semente = abs(int(lat * 10000) + int(lon * 10000))
         altitude_mdt = 50 + (semente % 420)
         declive_mdt = 3.0 + (semente % 35)
@@ -82,7 +77,6 @@ class FIRESIMULEngine:
         uso_solo_cos = classes_cos[semente % len(classes_cos)]
         
         caop_dados = {"localidade": "Ponto Remoto", "freguesia": "Área Não Delimitada", "concelho": "Sob Monitorização", "distrito": "Portugal"}
-        
         try:
             response = requests.get(url, headers=headers, timeout=5)
             if response.status_code == 200:
@@ -100,7 +94,6 @@ class FIRESIMULEngine:
 
     @staticmethod
     def obter_clima_reativo(lat, lon):
-        """Cálculo dinâmico dos factores meteorológicos ponderados pela latitude/longitude"""
         semente = abs(int(lat * 100) + int(lon * 100))
         return {
             "temp": 28.0 + (semente % 10),
@@ -111,26 +104,21 @@ class FIRESIMULEngine:
 
     @staticmethod
     def calcular_pontos_sensiveis_e_tempo(lat, lon, velocidade_m_min, concelho):
-        """Geração 100% dinâmica de Alvos Ameaçados no vetor de proximidade geométrica"""
         agora = datetime.now()
-        
         pontos = [
-            {"tipo": "🏡 Aglomerado Populacional", "nome": f"Zorba Habitacional Sul ({concelho})", "dist_m": 680, "lat": lat + 0.004, "lon": lon - 0.003},
+            {"tipo": "🏡 Aglomerado Populacional", "nome": f"Zona Habitacional Sul ({concelho})", "dist_m": 680, "lat": lat + 0.004, "lon": lon - 0.003},
             {"tipo": "⚡ Infraestrutura Crítica", "nome": f"Nó de Distribuição de Energia Concelhia", "dist_m": 1420, "lat": lat + 0.009, "lon": lon - 0.006},
             {"tipo": "🏥 Saúde / Vulnerável", "nome": f"Unidade de Apoio Social Integrada de {concelho}", "dist_m": 3800, "lat": lat + 0.028, "lon": lon + 0.010}
         ]
-        
         for p in pontos:
             minutos_ate_impacto = p["dist_m"] / velocidade_m_min
             hora_impacto = agora + timedelta(minutes=minutos_ate_impacto)
             p["hora_prevista"] = hora_impacto.strftime("%H:%M:%S")
             p["tempo_restante"] = f"{int(minutos_ate_impacto)} min"
-            
         return pontos
 
     @staticmethod
     def calcular_deslocacao_meios(lat, lon, concelho):
-        """Cálculo logístico e operacional de meios com toponímia gerada dinamicamente"""
         return [
             {"Meio de Socorro": f"AHBV {concelho} (VUCI / VFCI)", "Localização Original": "Quartel Sede Concelhia", "Distância (km)": "5.2 km", "Tempo de Marcha": "7 min", "Estado": "Em Marcha"},
             {"Meio de Socorro": "Corporação de Apoio Perimétrico (VFCI)", "Localização Original": "Setor Limítrofe Regional", "Distância (km)": "19.5 km", "Tempo de Marcha": "22 min", "Estado": "Despachado"},
@@ -140,18 +128,9 @@ class FIRESIMULEngine:
 
     @staticmethod
     def gerar_alertas_satelite_dinamicos(lat, lon):
-        """Geração dinâmica de focos secundários com base no algoritmo do ponto zero"""
         return [
             {"lat": lat + 0.008, "lon": lon + 0.006, "satelite": "VIIRS (Deteção Remota)", "confianca": "Alta", "temp_k": 345.2},
             {"lat": lat - 0.005, "lon": lon - 0.004, "satelite": "MODIS (Térmico)", "confianca": "Nominal", "temp_k": 319.8}
-        ]
-
-    @staticmethod
-    def gerar_ocorrencias_ativas_dinamicas(lat, lon, localidade, concelho):
-        """Estruturação dinâmica da ocorrência ativa para a Proteção Civil"""
-        semente = abs(int(lat * 100))
-        return [
-            {"id": f"2026{semente:06d}", "concelho": concelho, "local": localidade, "natureza": "Incêndio Rural", "estado": "Em Curso", "lat": lat, "lon": lon}
         ]
 
 # --- 3. ESTADOS DE SESSÃO OPERACIONAL ---
@@ -186,7 +165,6 @@ def abrir_janela_validacao(lat_c, lon_c):
 # --- 5. BARRA LATERAL (PARAMETRIZAÇÃO ADAPTATIVA) ---
 with st.sidebar:
     st.title("FIRESIMUL v5.6")
-    st.caption(f"🔄 Sincronização Ativa: {datetime.now().strftime('%H:%M:%S')}")
     st.markdown("---")
     
     st.markdown("<p style='color:#74b9ff; font-weight:bold; margin-bottom:2px;'>📥 MODO A: TEXTO ADMINISTRATIVO</p>", unsafe_allow_html=True)
@@ -221,64 +199,60 @@ with st.sidebar:
 sig_ponto_ativo = FIRESIMULEngine.cruzar_dados_sig_reais(st.session_state.lat, st.session_state.lon)
 clima_ponto_ativo = FIRESIMULEngine.obter_clima_reativo(st.session_state.lat, st.session_state.lon)
 hotspots = FIRESIMULEngine.gerar_alertas_satelite_dinamicos(st.session_state.lat, st.session_state.lon)
-prociv_incendios = FIRESIMULEngine.gerar_ocorrencias_ativas_dinamicas(st.session_state.lat, st.session_state.lon, sig_ponto_ativo["localidade"], sig_ponto_ativo["concelho"])
 
-# Velocidade de progressão e comprimento calculados de forma reativa e estritamente matemática
 fator_velocidade = 10.5 + (sig_ponto_ativo["declive"] * 0.4) + (clima_ponto_ativo["vento_speed"] * 0.25)
 comprimento_cabeça = (fator_velocidade * 60) * duracao_simulacao
 
 pontos_sensiveis_calculados = FIRESIMULEngine.calcular_pontos_sensiveis_e_tempo(st.session_state.lat, st.session_state.lon, fator_velocidade, sig_ponto_ativo["concelho"])
 tabela_meios_socorro = FIRESIMULEngine.calcular_deslocacao_meios(st.session_state.lat, st.session_state.lon, sig_ponto_ativo["concelho"])
 
-# --- 7. PAINEL CENTRAL E CARTOGRAFIA ARCGIS HÍBRIDA ---
+# --- 7. PAINEL CENTRAL E CARTOGRAFIA ---
 st.title("🛡️ Consola Operacional FIRESIMUL — Monitorização Real")
-st.write(f"Vetorização de risco reativa em gota para o Teatro de Operações de **{sig_ponto_ativo['localidade']}**.")
+st.write(f"Painel tático para o Teatro de Operações de **{sig_ponto_ativo['localidade']}**.")
 
 col_map, col_tables = st.columns([1.4, 1])
 
-m = folium.Map(location=[st.session_state.lat, st.session_state.lon], zoom_start=st.session_state.zoom, control_scale=True)
-
-folium.TileLayer(
-    tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attr="Esri ArcGIS World Imagery", name="ArcGIS Satélite", overlay=False, control=False
-).add_to(m)
-
-folium.TileLayer(
-    tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-    attr="Esri ArcGIS Legendas", name="ArcGIS Legendas", overlay=True, control=False, opacity=0.85
-).add_to(m)
-
-for pr in prociv_incendios:
-    folium.Marker(location=[pr["lat"], pr["lon"]], icon=folium.Icon(color="red", icon="fire", prefix="fa")).add_to(m)
-for hs in hotspots:
-    folium.CircleMarker(location=[hs["lat"], hs["lon"]], radius=6, color="#ff793f", fill=True, fill_color="#ffb142").add_to(m)
-
-for ps in pontos_sensiveis_calculados:
-    folium.Marker(
-        location=[ps["lat"], ps["lon"]],
-        icon=folium.Icon(color="orange", icon="home" if "Aglomerado" in ps["tipo"] else "shield", prefix="fa"),
-        popup=f"<b>{ps['nome']}</b><br>Impacto: {ps['hora_prevista']}"
+# O Mapa é desenhado fora do fragment para nunca piscar nem perder o estado de zoom
+with col_map:
+    m = folium.Map(location=[st.session_state.lat, st.session_state.lon], zoom_start=st.session_state.zoom, control_scale=True)
+    
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri ArcGIS World Imagery", name="ArcGIS Satélite", overlay=False, control=False
     ).add_to(m)
 
-folium.Marker(location=[st.session_state.lat, st.session_state.lon], icon=folium.Icon(color="darkpurple", icon="crosshairs", prefix="fa")).add_to(m)
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri ArcGIS Legendas", name="ArcGIS Legendas", overlay=True, control=False, opacity=0.85
+    ).add_to(m)
 
-# ALGORITMO GEOMÉTRICO DINÂMICO EM PONTO GOTA (PIRIFORME)
-pontos_gota = []
-angulo_rad = math.radians(clima_ponto_ativo["vento_dir"])
+    for hs in hotspots:
+        folium.CircleMarker(location=[hs["lat"], hs["lon"]], radius=6, color="#ff793f", fill=True, fill_color="#ffb142").add_to(m)
 
-for i in range(46):
-    t = math.radians(i * 8)
-    dx = (comprimento_cabeça * 0.45) * math.sin(t) * math.sin(t / 2.0)
-    dy = (comprimento_cabeça * 0.85) * math.cos(t)
-    rx = dx * math.cos(angulo_rad) - dy * math.sin(angulo_rad)
-    ry = dx * math.sin(angulo_rad) + dy * math.cos(angulo_rad)
-    n_lat = st.session_state.lat + (ry / 6378137) * (180 / math.pi)
-    n_lon = st.session_state.lon + (rx / 6378137) * (180 / math.pi) / math.cos(math.radians(st.session_state.lat))
-    pontos_gota.append([n_lat, n_lon])
+    for ps in pontos_sensiveis_calculados:
+        folium.Marker(
+            location=[ps["lat"], ps["lon"]],
+            icon=folium.Icon(color="orange", icon="home" if "Aglomerado" in ps["tipo"] else "shield", prefix="fa"),
+            popup=f"<b>{ps['nome']}</b>"
+        ).add_to(m)
 
-folium.Polygon(locations=pontos_gota, color="#d63031", weight=3, fill=True, fill_opacity=0.2, popup="Vetor em Gota FIRESIMUL").add_to(m)
+    folium.Marker(location=[st.session_state.lat, st.session_state.lon], icon=folium.Icon(color="darkpurple", icon="crosshairs", prefix="fa")).add_to(m)
 
-with col_map:
+    # ALGORITMO GEOMÉTRICO EM PONTO GOTA
+    pontos_gota = []
+    angulo_rad = math.radians(clima_ponto_ativo["vento_dir"])
+    for i in range(46):
+        t = math.radians(i * 8)
+        dx = (comprimento_cabeça * 0.45) * math.sin(t) * math.sin(t / 2.0)
+        dy = (comprimento_cabeça * 0.85) * math.cos(t)
+        rx = dx * math.cos(angulo_rad) - dy * math.sin(angulo_rad)
+        ry = dx * math.sin(angulo_rad) + dy * math.cos(angulo_rad)
+        n_lat = st.session_state.lat + (ry / 6378137) * (180 / math.pi)
+        n_lon = st.session_state.lon + (rx / 6378137) * (180 / math.pi) / math.cos(math.radians(st.session_state.lat))
+        pontos_gota.append([n_lat, n_lon])
+
+    folium.Polygon(locations=pontos_gota, color="#d63031", weight=3, fill=True, fill_opacity=0.2).add_to(m)
+
     mapa_retorno = st_folium(m, width="100%", height=550, key="mapa_firesimul_v56")
     if mapa_retorno and mapa_retorno.get("last_clicked"):
         cl_lat = mapa_retorno["last_clicked"]["lat"]
@@ -286,64 +260,64 @@ with col_map:
         if abs(cl_lat - st.session_state.lat) > 0.0001 or abs(cl_lon - st.session_state.lon) > 0.0001:
             abrir_janela_validacao(cl_lat, cl_lon)
 
-with col_tables:
-    st.subheader("📋 Matriz Integrada: Situação Geográfica e Climatológica")
-    
-    df_combinada = pd.DataFrame({
-        "Parâmetro Analítico (SIG)": [
-            "Localidade / Ponto Alvo", "Freguesia (CAOP Recente)", "Concelho (CAOP Recente)", "Distrito Administrativo",
-            "Latitude (GMD)", "Longitude (GMD)", "Uso e Ocupação do Solo (COS)", 
-            "Altitude Terrestre (MDT)", "Declive Médio (MDT)", "Temperatura Ambiente", 
-            "Humidade Relativa do Ar", "Intensidade / Vetor do Vento"
-        ],
-        "Registo de Sala de Crise": [
-            sig_ponto_ativo["localidade"], sig_ponto_ativo["freguesia"], sig_ponto_ativo["concelho"], sig_ponto_ativo["distrito"],
-            FIRESIMULEngine.decimal_para_gmd(st.session_state.lat, is_lat=True), FIRESIMULEngine.decimal_para_gmd(st.session_state.lon, is_lat=False),
-            sig_ponto_ativo["cos_solo"], f"{sig_ponto_ativo['altitude']} metros", f"{sig_ponto_ativo['declive']:.1f}% voltado a {sig_ponto_ativo['orientacao']}",
-            f"{clima_ponto_ativo['temp']:.1f} °C", f"{clima_ponto_ativo['hr']:.0f} %", f"{clima_ponto_ativo['vento_speed']} km/h (Rumo {clima_ponto_ativo['vento_dir']}°)"
-        ]
-    })
-    st.dataframe(df_combinada, use_container_width=True, hide_index=True)
+# --- 8. FRAGMENTO DINÂMICO (Atualiza as tabelas e relatórios a cada 1 min sem piscar o mapa) ---
+@st.fragment(run_every=60)
+def renderizar_dados_dinamicos():
+    with col_tables:
+        st.subheader("📋 Situação Geográfica e Climatológica")
+        st.caption(f"⏱️ Relatório atualizado às: {datetime.now().strftime('%H:%M:%S')}")
+        
+        df_combinada = pd.DataFrame({
+            "Parâmetro Analítico (SIG)": [
+                "Localidade / Ponto Alvo", "Freguesia (CAOP)", "Concelho (CAOP)", "Distrito",
+                "Uso do Solo (COS)", "Altitude Terrestre", "Declive Médio", "Temperatura", 
+                "Humidade Relativa", "Vetor do Vento"
+            ],
+            "Registo de Sala de Crise": [
+                sig_ponto_ativo["localidade"], sig_ponto_ativo["freguesia"], sig_ponto_ativo["concelho"], sig_ponto_ativo["distrito"],
+                sig_ponto_ativo["cos_solo"], f"{sig_ponto_ativo['altitude']} metros", f"{sig_ponto_ativo['declive']:.1f}% ({sig_ponto_ativo['orientacao']})",
+                f"{clima_ponto_ativo['temp']:.1f} °C", f"{clima_ponto_ativo['hr']:.0f} %", f"{clima_ponto_ativo['vento_speed']} km/h ({clima_ponto_ativo['vento_dir']}°)"
+            ]
+        })
+        st.dataframe(df_combinada, use_container_width=True, hide_index=True)
 
-st.markdown("---")
+    st.markdown("---")
+    st.subheader("🚨 Avaliação de Alvos Ameaçados e Logística de Socorro")
+    col_ps, col_meios = st.columns(2)
 
-st.subheader("🚨 Avaliação de Alvos Ameaçados e Logística de Socorro")
-col_ps, col_meios = st.columns(2)
+    with col_ps:
+        st.write(f"**📍 Alvos em Calha de Risco Histórico ({sig_ponto_ativo['concelho']}):**")
+        for ps in pontos_sensiveis_calculados:
+            st.markdown(
+                f"<div class='sensivel-card'>"
+                f"<b>{ps['tipo']}:</b> {ps['nome']}<br>"
+                f"Distância: <b>{ps['dist_m']} m</b> | Falta: <span style='color:#ff793f;'><b>{ps['tempo_restante']}</b></span><br>"
+                f"<b>HORA PREVISTA DE IMPACTO: <span style='color:#d63031;'>{ps['hora_prevista']}</span></b>"
+                f"</div>", unsafe_allow_html=True
+            )
 
-with col_ps:
-    st.write(f"**📍 Pontos Sensíveis Mapeados Dinamicamente ({sig_ponto_ativo['concelho']}):**")
-    for ps in pontos_sensiveis_calculados:
+    with col_meios:
+        st.write("**🚒 Deslocação de Forças Operacionais Ativas:**")
+        st.dataframe(pd.DataFrame(tabela_meios_socorro), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.subheader(f"🛡️ PEA - Plano Estratégico de Ação (+{duracao_simulacao}h)")
+
+    c_pea1, c_pea2 = st.columns(2)
+    with c_pea1:
         st.markdown(
-            f"<div class='sensivel-card'>"
-            f"<b>{ps['tipo']}:</b> {ps['nome']}<br>"
-            f"Distância ao Ponto Zero: <b>{ps['dist_m']} m</b> | "
-            f"Tempo Estimado de Chegada: <span style='color:#ff793f;'><b>{ps['tempo_restante']}</b></span><br>"
-            f"<b>HORA PREVISTA DE IMPACTO CRÍTICO: <span style='color:#d63031;'>{ps['hora_prevista']}</span></b>"
+            f"<div class='pea-card'>"
+            f"<b>SÍNTESE OPERACIONAL DO SETOR:</b><br>"
+            f"Foco ativo em <b>{sig_ponto_ativo['localidade']}</b>, a progredir em <b>{sig_ponto_ativo['cos_solo']}</b>. "
+            f"Velocidade real da cabeça estimada em <b>{fator_velocidade:.1f} m/min</b>, projetando um alcance linear de <b>{comprimento_cabeça:.0f} metros</b>.<br><br>"
+            f"<b>Alvo Crítico Imediato:</b> {pontos_sensiveis_calculados[0]['nome']} com impacto modelado para as <span style='color:#ff3838;'><b>{pontos_sensiveis_calculados[0]['hora_prevista']}</b></span>."
             f"</div>", unsafe_allow_html=True
         )
+    with c_pea2:
+        st.write("**Diretrizes Operacionais Direcionadas:**")
+        st.write(f"1. **Setorização:** Despachar o contingente **{tabela_meios_socorro[0]['Meio de Socorro']}** para proteção perimétrica na **{pontos_sensiveis_calculados[0]['nome']}** antes das **{pontos_sensiveis_calculados[0]['hora_prevista']}**.")
+        st.write(f"2. **Logística:** Acionar alertas rodoviários perto de **{pontos_sensiveis_calculados[1]['nome']}**, visto que a progressão cruzará o setor pelas **{pontos_sensiveis_calculados[1]['hora_prevista']}**.")
+        st.write(f"3. **Combate Leste:** Manter o **{tabela_meios_socorro[1]['Meio de Socorro']}** focado no flanco esquerdo para travar a expansão lateral da gota geométrica.")
 
-with col_meios:
-    st.write("**🚒 Deslocação de Forças Operacionais (Cálculo Reativo):**")
-    st.dataframe(pd.DataFrame(tabela_meios_socorro), use_container_width=True, hide_index=True)
-
-st.markdown("---")
-
-# --- 8. PEA TOTALMENTE ADAPTATIVO E DINÂMICO ---
-st.subheader(f"🛡️ PEA - Plano Estratégico de Ação Real (+{duracao_simulacao}h)")
-
-c_pea1, c_pea2 = st.columns(2)
-with c_pea1:
-    st.markdown(
-        f"<div class='pea-card'>"
-        f"<b>SÍNTESE OPERACIONAL EM TEMPO REAL:</b><br>"
-        f"Teatro de Operações validado no setor de <b>{sig_ponto_ativo['localidade']}</b> ({sig_ponto_ativo['concelho']}), progredindo em manchas de combustível analisadas via COS como <b>{sig_ponto_ativo['cos_solo']}</b>. "
-        f"Com vento ativo de <b>{clima_ponto_ativo['vento_speed']} km/h</b> e a inclinação do MDT local de <b>{sig_ponto_ativo['declive']:.1f}%</b>, a cabeça da gota propaga-se a <b>{fator_velocidade:.1f} m/min</b>, com uma projeção total de <b>{comprimento_cabeça:.0f} metros</b> na janela temporal definida de <b>{duracao_simulacao}h</b>.<br><br>"
-        f"<b>Ponto Crítico Imediato:</b> Eixo habitacional da <b>{pontos_sensiveis_calculados[0]['nome']}</b> com impacto modelado para as <span style='color:#ff3838;'><b>{pontos_sensiveis_calculados[0]['hora_prevista']}</b></span>."
-        f"</div>", unsafe_allow_html=True
-    )
-with c_pea2:
-    st.write("**Diretrizes Operacionais Direcionadas à Região:**")
-    st.write(f"1. **Setorização de Linha de Água:** Posicionar o contingente inicial do **{tabela_meios_socorro[0]['Meio de Socorro']}** (tempo de chegada de **{tabela_meios_socorro[0]['Tempo de Marcha']}**) na defesa perimétrica e proteção de fachadas na **{pontos_sensiveis_calculados[0]['nome']}** impreterivelmente antes das **{pontos_sensiveis_calculados[0]['hora_prevista']}**.")
-    st.write(f"2. **Proteção Ferroviária/Rodoviária:** Acionar alertas e cortar eixos de trânsito perto de **{pontos_sensiveis_calculados[1]['nome']}**, dado que a progressão cruzará a infraestrutura pelas **{pontos_sensiveis_calculados[1]['hora_prevista']}**.")
-    st.write(f"3. **Ataque Ampliado Lateral:** Atribuir às equipas da **{tabela_meios_socorro[1]['Meio de Socorro']}** o combate indireto ao longo das linhas de cumeada para conter o alargamento lateral da gota na transição de combustível.")
-    st.write(f"4. **Apoio Tático de Descarga:** Emprenhar o **{tabela_meios_socorro[3]['Meio de Socorro']}** (tempo estimado de voo de **{tabela_meios_socorro[3]['Tempo de Voo']}**) para descargas de retardante na frente principal de forma a desacelerar o avanço de **{fator_velocidade:.1f} m/min**.")
+# Executa a renderização contínua e isolada das tabelas
+renderizar_dados_dinamicos()
