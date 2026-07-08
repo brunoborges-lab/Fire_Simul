@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # Atualização contínua a cada 60 segundos (1 minuto)
-st_autorefresh(interval=60000, key="firesimul_refresh_counter")
+st_autorefresh(interval=200000, key="firesimul_refresh_counter")
 
 # Estilo Visual Tático de Sala de Crise
 st.markdown("""
