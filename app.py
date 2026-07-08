@@ -34,17 +34,17 @@ class FEBSigEngine:
     }
 
 @staticmethod
-def converter_gmd_para_decimal(graus, minutos_dec):
+    def converter_gmd_para_decimal(graus, minutos_dec):
     """Conversão de Graus Minutos.Decimais para Graus Decimais (padrão Folium/ArcGIS)"""
-    sinal = -1 if graus < 0 else 1
-    return abs(graus) + (minutos_dec / 60.0) * sinal
+        sinal = -1 if graus < 0 else 1
+        return abs(graus) + (minutos_dec / 60.0) * sinal
 
-    @staticmethod
-def geocode_texto_caop(localidade, freguesia, concelho, distrito):
-    """Simula a resolução de texto hierárquico cruzando com a CAOP"""
-    if concelho.lower() == "mação" or localidade:
+@staticmethod
+    def geocode_texto_caop(localidade, freguesia, concelho, distrito):
+        """Simula a resolução de texto hierárquico cruzando com a CAOP"""
+        if concelho.lower() == "mação" or localidade:
         return 39.552, -7.962
-    return 39.557, -7.996
+        return 39.557, -7.996
 
     @staticmethod
     def extrair_mdt(lat, lon):
