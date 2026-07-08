@@ -20,8 +20,8 @@ st.markdown("""
     .stSidebar { background-color: #DDDDDD !important; border-right: 2px solid #333333; }
     .stMetric { background-color: #DDDDDD; border: 1px solid #444444; padding: 10px; border-radius: 4px; }
     .pea-card { background-color: #DDDDDD; padding: 15px; border-radius: 4px; border-left: 5px solid #d63031; margin-bottom: 12px; }
-    .sensivel-card { background-color: #2a2a2a; padding: 12px; border-radius: 4px; margin-bottom: 8px; border-left: 5px solid #ff793f; }
-    .infra-card { background-color: #252a34; padding: 10px; border-radius: 4px; margin-bottom: 8px; border-left: 5px solid #00d2d3; }
+    .sensivel-card { background-color: #DDDDDD; padding: 12px; border-radius: 4px; margin-bottom: 8px; border-left: 5px solid #ff793f; }
+    .infra-card { background-color: #DDDDDD; padding: 10px; border-radius: 4px; margin-bottom: 8px; border-left: 5px solid #00d2d3; }
     .folium-map { filter: grayscale(100%) contrast(105%) brightness(95%); }
     h1, h2, h3, p { color: #ffffff !important; font-family: 'Segoe UI', sans-serif; }
     </style>
