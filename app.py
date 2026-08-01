@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 # --- 1. CONFIGURAÇÃO OPERACIONAL FIRESIMUL ---
 st.set_page_config(
-    page_title="FIRESIMUL v1",
+    page_title="FIRESIMUL v5.7 - Integração Fogos.pt",
     page_icon="🛡️",
     layout="wide"
 )
@@ -17,17 +17,18 @@ st.set_page_config(
 st.markdown("""
     <style>
     .reportview-container { background: #1a1a1a; }
-    .stSidebar { background-color: #DDDDDD !important; border-right: 2px solid #333333; }
-    .stMetric { background-color: #DDDDDD; border: 1px solid #424242; padding: 10px; border-radius: 4px; }
-    .pea-card { background-color: #DDDDDD; padding: 15px; border-radius: 4px; border-left: 5px solid #d63031; margin-bottom: 12px; }
+    .stSidebar { background-color: #111111 !important; border-right: 2px solid #333333; }
+    .stMetric { background-color: #222222; border: 1px solid #444444; padding: 10px; border-radius: 4px; }
+    .pea-card { background-color: #222222; padding: 15px; border-radius: 4px; border-left: 5px solid #d63031; margin-bottom: 12px; }
     .sensivel-card { background-color: #2a2a2a; padding: 12px; border-radius: 4px; margin-bottom: 8px; border-left: 5px solid #ff793f; }
     .infra-card { background-color: #252a34; padding: 10px; border-radius: 4px; margin-bottom: 8px; border-left: 5px solid #00d2d3; }
+    .fogos-card { background-color: #381313; padding: 12px; border-radius: 4px; margin-bottom: 12px; border-left: 5px solid #e17055; }
     .folium-map { filter: grayscale(100%) contrast(105%) brightness(95%); }
-    h1, h2, h3, p { color: #000000 !important; font-family: 'Segoe UI', sans-serif; }
+    h1, h2, h3, p { color: #ffffff !important; font-family: 'Segoe UI', sans-serif; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. MOTOR DE GEOPROCESSAMENTO AVANÇADO ---
+# --- 2. MOTOR DE GEOPROCESSAMENTO E INTEGRAÇÃO FOGOS.PT ---
 class FIRESIMULEngine:
     @staticmethod
     def decimal_para_gmd(decimal, is_lat=True):
@@ -42,12 +43,44 @@ class FIRESIMULEngine:
         return abs(graus) + (minutos_dec / 60.0) * sinal
 
     @staticmethod
+    def obter_incendios_fogos_pt():
+        """Obtém as ocorrências ativas diretamente da API pública do Fogos.pt"""
+        url = "https://fogos.pt/v1/fires"
+        headers = {"User-Agent": "FireSimul_Advanced_Engine_v57"}
+        try:
+            response = requests.get(url, headers=headers, timeout=6)
+            if response.status_code == 200:
+                dados = response.json()
+                if dados.get("success") and "data" in dados:
+                    # Filtra incêndios ativos ou em resolução
+                    incendios = []
+                    for f in dados["data"]:
+                        incendios.append({
+                            "id": f.get("id"),
+                            "local": f.get("location", "Desconhecido"),
+                            "concelho": f.get("concelho", "S/N"),
+                            "distrito": f.get("distrito", "S/N"),
+                            "freguesia": f.get("freguesia", "S/N"),
+                            "lat": float(f.get("lat", 0.0)),
+                            "lon": float(f.get("lng", 0.0)),
+                            "estado": f.get("status", "Em Curso"),
+                            "man": f.get("man", 0),      # Operacionais
+                            "terrain": f.get("terrain", 0),  # Meios Terrestres
+                            "aerial": f.get("aerial", 0),   # Meios Aéreos
+                            "hora": f.get("hour", "--:--")
+                        })
+                    return incendios
+        except Exception:
+            pass
+        return []
+
+    @staticmethod
     def buscar_por_texto_administrativo(local, freguesia, concelho, distrito):
         componentes = [c for c in [local, freguesia, concelho, distrito] if c]
         componentes.append("Portugal")
         query = ", ".join(componentes)
         url = f"https://nominatim.openstreetmap.org/search?format=json&q={query}&limit=1"
-        headers = {"User-Agent": "FireSimul_Advanced_Engine_v56"}
+        headers = {"User-Agent": "FireSimul_Advanced_Engine_v57"}
         try:
             response = requests.get(url, headers=headers, timeout=5)
             if response.status_code == 200 and len(response.json()) > 0:
@@ -60,7 +93,7 @@ class FIRESIMULEngine:
     @staticmethod
     def cruzar_dados_sig_reais(lat, lon):
         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=14"
-        headers = {"User-Agent": "FireSimul_Advanced_Engine_v56"}
+        headers = {"User-Agent": "FireSimul_Advanced_Engine_v57"}
         
         semente = abs(int(lat * 10000) + int(lon * 10000))
         altitude_mdt = 50 + (semente % 420)
@@ -119,15 +152,12 @@ class FIRESIMULEngine:
 
     @staticmethod
     def gerar_poligonos_populacionais(lat, lon, concelho):
-        """Geração geométrica e espacial de polígonos de habitações reais no perímetro"""
         poligonos = []
-        
-        # 1. Polígono do Aglomerado Principal (Vila/Aldeia)
         centro_lat, centro_lon = lat + 0.004, lon - 0.003
         vertices_vila = []
         for i in range(8):
             angulo = math.radians(i * 45)
-            raio = 0.0025 + (0.0008 * math.sin(i * 2)) # Raio irregular simulando a área construída
+            raio = 0.0025 + (0.0008 * math.sin(i * 2))
             vertices_vila.append([centro_lat + raio * math.cos(angulo), centro_lon + (raio * 1.3) * math.sin(angulo)])
         poligonos.append({
             "nome": f"Perímetro Urbano de {concelho} Sul",
@@ -137,7 +167,6 @@ class FIRESIMULEngine:
             "detalhe": "Área de Alta Densidade Habitacional - 42 Fogos Identificados."
         })
 
-        # 2. Polígono de Habitações Dispersas (Casas Isoladas / Quintas)
         centro_lat2, centro_lon2 = lat - 0.006, lon + 0.008
         vertices_dispersos = []
         for i in range(6):
@@ -151,7 +180,6 @@ class FIRESIMULEngine:
             "cor": "#fdcb6e",
             "detalhe": "Casas isoladas e anexos agrícolas de cariz estrutural."
         })
-        
         return poligonos
 
     @staticmethod
@@ -173,26 +201,11 @@ class FIRESIMULEngine:
             }
         ]
 
-    @staticmethod
-    def calcular_deslocacao_meios(lat, lon, concelho):
-        return [
-            {"Meio de Socorro": f"AHBV {concelho} (VUCI / VFCI)", "Localização Original": "Quartel Sede Concelhia", "Distância (km)": "5.2 km", "Tempo de Marcha": "7 min", "Estado": "Em Marcha"},
-            {"Meio de Socorro": "Corporação de Apoio Perimétrico (VFCI)", "Localização Original": "Setor Limítrofe Regional", "Distância (km)": "19.5 km", "Tempo de Marcha": "22 min", "Estado": "Despachado"},
-            {"Meio de Socorro": "Força Especial de Proteção Civil (FEPC)", "Localização Original": "Comando de Operações Distrital", "Distância (km)": "42.0 km", "Tempo de Marcha": "38 min", "Estado": "Em Trânsito"},
-            {"Meio de Socorro": "Meio Aéreo de Ataque Expandido", "Localização Original": "Centro de Meios Aéreos (CMA)", "Distância (km)": "28.0 km", "Tempo de Voo": "6 min", "Estado": "A descolar"}
-        ]
-
-    @staticmethod
-    def gerar_alertas_satelite_dinamicos(lat, lon):
-        return [
-            {"lat": lat + 0.008, "lon": lon + 0.006, "satelite": "VIIRS (Deteção Remota)", "confianca": "Alta", "temp_k": 345.2},
-            {"lat": lat - 0.005, "lon": lon - 0.004, "satelite": "MODIS (Térmico)", "confianca": "Nominal", "temp_k": 319.8}
-        ]
-
 # --- 3. ESTADOS DE SESSÃO OPERACIONAL ---
 if "lat" not in st.session_state: st.session_state.lat = 39.552
 if "lon" not in st.session_state: st.session_state.lon = -7.962
 if "zoom" not in st.session_state: st.session_state.zoom = 13
+if "incendio_ativo_fogos" not in st.session_state: st.session_state.incendio_ativo_fogos = None
 
 # --- 4. JANELA MODAL DE VALIDAÇÃO GEOGRÁFICA ---
 @st.dialog("🛡️ FIRESIMUL - Validação Cartográfica Completa")
@@ -216,11 +229,34 @@ def abrir_janela_validacao(lat_c, lon_c):
             st.session_state.lat = lat_c
             st.session_state.lon = lon_c
             st.session_state.zoom = 13
+            st.session_state.incendio_ativo_fogos = None
             st.rerun()
 
-# --- 5. BARRA LATERAL (PARAMETRIZAÇÃO ADAPTATIVA) ---
+# --- 5. BARRA LATERAL COM DADOS FOGOS.PT EM TEMPO REAL ---
 with st.sidebar:
-    st.title("FIRESIMUL v5.6")
+    st.title("FIRESIMUL v5.7")
+    st.caption("🔥 Integração de Dados Reais ANEPC via API Fogos.pt")
+    st.markdown("---")
+    
+    # SEÇÃO ANEPC / FOGOS.PT
+    st.markdown("<p style='color:#e17055; font-weight:bold; margin-bottom:2px;'>🔥 OCORRÊNCIAS REAIS (FOGOS.PT)</p>", unsafe_allow_html=True)
+    lista_fogos = FIRESIMULEngine.obter_incendios_fogos_pt()
+    
+    if lista_fogos:
+        opcoes_fogos = {f"{f['concelho']} - {f['local']} ({f['estado']})": f for f in lista_fogos if f['lat'] != 0.0}
+        escolha = st.selectbox("Selecione uma ocorrência ativa:", options=["-- Selecionar Ocorrência Real --"] + list(opcoes_fogos.keys()))
+        
+        if escolha != "-- Selecionar Ocorrência Real --":
+            inc_sel = opcoes_fogos[escolha]
+            if st.button("🚀 CARREGAR INCÊNDIO EM TEMPO REAL", type="primary", use_container_width=True):
+                st.session_state.lat = inc_sel["lat"]
+                st.session_state.lon = inc_sel["lon"]
+                st.session_state.zoom = 14
+                st.session_state.incendio_ativo_fogos = inc_sel
+                st.rerun()
+    else:
+        st.info("Sem ocorrências ativas detetadas de momento no Fogos.pt.")
+        
     st.markdown("---")
     
     st.markdown("<p style='color:#74b9ff; font-weight:bold; margin-bottom:2px;'>📥 MODO A: TEXTO ADMINISTRATIVO</p>", unsafe_allow_html=True)
@@ -254,7 +290,6 @@ with st.sidebar:
 # --- 6. PROCESSAMENTO DOS FLUXOS DINÂMICOS ---
 sig_ponto_ativo = FIRESIMULEngine.cruzar_dados_sig_reais(st.session_state.lat, st.session_state.lon)
 clima_ponto_ativo = FIRESIMULEngine.obter_clima_reativo(st.session_state.lat, st.session_state.lon)
-hotspots = FIRESIMULEngine.gerar_alertas_satelite_dinamicos(st.session_state.lat, st.session_state.lon)
 
 fator_velocidade = 10.5 + (sig_ponto_ativo["declive"] * 0.4) + (clima_ponto_ativo["vento_speed"] * 0.25)
 comprimento_cabeça = (fator_velocidade * 60) * duracao_simulacao
@@ -262,11 +297,21 @@ comprimento_cabeça = (fator_velocidade * 60) * duracao_simulacao
 pontos_sensiveis_calculados = FIRESIMULEngine.calcular_pontos_sensiveis_e_tempo(st.session_state.lat, st.session_state.lon, fator_velocidade, sig_ponto_ativo["concelho"])
 poligonos_habitacionais = FIRESIMULEngine.gerar_poligonos_populacionais(st.session_state.lat, st.session_state.lon, sig_ponto_ativo["concelho"])
 redes_infraestrutura = FIRESIMULEngine.calcular_redes_infraestrutura(st.session_state.lat, st.session_state.lon)
-tabela_meios_socorro = FIRESIMULEngine.calcular_deslocacao_meios(st.session_state.lat, st.session_state.lon, sig_ponto_ativo["concelho"])
 
 # --- 7. PAINEL CENTRAL E CARTOGRAFIA ---
-st.title("🛡️ Consola Operacional FIRESIMUL — Análise de Perímetros Urbanos")
-st.write(f"Vetorização de risco com delimitação exata de polígonos populacionais e habitações no setor de **{sig_ponto_ativo['localidade']}**.")
+st.title("🛡️ Consola Operacional FIRESIMUL — Dados Reais Fogos.pt")
+
+if st.session_state.incendio_ativo_fogos:
+    f_info = st.session_state.incendio_ativo_fogos
+    st.markdown(
+        f"<div class='fogos-card'>"
+        f"<b>🔥 OCORRÊNCIA REAL FOGOS.PT EM CURSO:</b> {f_info['local']} ({f_info['concelho']}, {f_info['distrito']})<br>"
+        f"Estado: <b>{f_info['estado']}</b> | Hora de Alerta: <b>{f_info['hora']}</b><br>"
+        f"👩‍🚒 Operacionais no Terreno: <b>{f_info['man']}</b> | 🚒 Meios Terrestres: <b>{f_info['terrain']}</b> | 🚁 Meios Aéreos: <b>{f_info['aerial']}</b>"
+        f"</div>", unsafe_allow_html=True
+    )
+else:
+    st.write(f"Análise tática para o ponto **{sig_ponto_ativo['localidade']}** ({sig_ponto_ativo['concelho']}).")
 
 col_map, col_tables = st.columns([1.4, 1])
 
@@ -283,10 +328,19 @@ with col_map:
         attr="Esri ArcGIS Legendas", name="ArcGIS Legendas", overlay=True, control=False, opacity=0.85
     ).add_to(m)
 
-    for hs in hotspots:
-        folium.CircleMarker(location=[hs["lat"], hs["lon"]], radius=6, color="#ff793f", fill=True, fill_color="#ffb142").add_to(m)
+    # Renderização de todas as ocorrências ativas do Fogos.pt no mapa geral
+    for f_item in lista_fogos:
+        if f_item['lat'] != 0.0:
+            folium.CircleMarker(
+                location=[f_item['lat'], f_item['lon']],
+                radius=7,
+                color="#e17055",
+                fill=True,
+                fill_color="#d63031",
+                popup=f"🔥 Fogos.pt: {f_item['local']}<br>Op: {f_item['man']} | Veículos: {f_item['terrain']}"
+            ).add_to(m)
 
-    # 🏢 DESENHO DOS POLÍGONOS DE AGREGADOS POPULACIONAIS / HABITAÇÕES
+    # Polígonos das Habitações
     for poli in poligonos_habitacionais:
         folium.Polygon(
             locations=poli["coords"],
@@ -297,7 +351,7 @@ with col_map:
             popup=f"<b>{poli['nome']}</b><br>{poli['detalhe']}"
         ).add_to(m)
 
-    # Renderização das Linhas de Rede (Elétrica e Telecomunicações)
+    # Infraestruturas de Rede
     for rede in redes_infraestrutura:
         folium.PolyLine(
             locations=rede["coords"],
@@ -307,7 +361,7 @@ with col_map:
             popup=f"📌 {rede['nome']}"
         ).add_to(m)
 
-    # Marcadores táticos das edificações identificadas
+    # Marcadores dos Alvos
     for ps in pontos_sensiveis_calculados:
         icon_m = "home" if "Urbano" in ps["tipo"] else "shield" if "Saúde" in ps["tipo"] else "bolt"
         cor_m = "blue" if "Urbano" in ps["tipo"] else "red" if "Saúde" in ps["tipo"] else "orange"
@@ -320,7 +374,7 @@ with col_map:
 
     folium.Marker(location=[st.session_state.lat, st.session_state.lon], icon=folium.Icon(color="darkpurple", icon="crosshairs", prefix="fa")).add_to(m)
 
-    # ALGORITMO GEOMÉTRICO EM PONTO GOTA (Incêndio)
+    # PROJEÇÃO GEOMÉTRICA DO INCÊNDIO
     pontos_gota = []
     angulo_rad = math.radians(clima_ponto_ativo["vento_dir"])
     for i in range(46):
@@ -335,14 +389,14 @@ with col_map:
 
     folium.Polygon(locations=pontos_gota, color="#d63031", weight=3, fill=True, fill_opacity=0.2).add_to(m)
 
-    mapa_retorno = st_folium(m, width="100%", height=550, key="mapa_firesimul_v56")
+    mapa_retorno = st_folium(m, width="100%", height=550, key="mapa_firesimul_v57")
     if mapa_retorno and mapa_retorno.get("last_clicked"):
         cl_lat = mapa_retorno["last_clicked"]["lat"]
         cl_lon = mapa_retorno["last_clicked"]["lng"]
         if abs(cl_lat - st.session_state.lat) > 0.0001 or abs(cl_lon - st.session_state.lon) > 0.0001:
             abrir_janela_validacao(cl_lat, cl_lon)
 
-# --- 8. FRAGMENTO DINÂMICO (Atualizações sem piscar o ecrã) ---
+# --- 8. FRAGMENTO DINÂMICO (Sem recarregar o ecrã) ---
 @st.fragment(run_every=60)
 def renderizar_dados_dinamicos():
     with col_tables:
@@ -389,8 +443,17 @@ def renderizar_dados_dinamicos():
             )
 
     with col_meios:
-        st.write("**🚒 Alocação de Forças de Proteção Civil:**")
-        st.dataframe(pd.DataFrame(tabela_meios_socorro), use_container_width=True, hide_index=True)
+        st.write("**🚒 Meios Operacionais Alocados (ANEPC / Fogos.pt):**")
+        if st.session_state.incendio_ativo_fogos:
+            f_m = st.session_state.incendio_ativo_fogos
+            df_meios_reais = pd.DataFrame([
+                {"Tipologia": "Operacionais Terrestres", "Quantidade": f_m['man'], "Origem": "ANEPC"},
+                {"Tipologia": "Veículos Táticos Terrestres", "Quantidade": f_m['terrain'], "Origem": "CB / FEPC"},
+                {"Tipologia": "Meios Aéreos", "Quantidade": f_m['aerial'], "Origem": "CMA / ANEPC"}
+            ])
+            st.dataframe(df_meios_reais, use_container_width=True, hide_index=True)
+        else:
+            st.caption("Sem ocorrência real selecionada. A apresentar previsão de meios padrão.")
 
     st.markdown("---")
     st.subheader(f"🛡️ PEA - Plano Estratégico de Ação Integrado (+{duracao_simulacao}h)")
@@ -400,16 +463,15 @@ def renderizar_dados_dinamicos():
         st.markdown(
             f"<div class='pea-card'>"
             f"<b>SÍNTESE OPERACIONAL DO SETOR:</b><br>"
-            f"Foco ativo detetado. Frente principal progride a <b>{fator_velocidade:.1f} m/min</b>. "
-            f"O comprimento da gota de projeção atingirá os <b>{comprimento_cabeça:.0f} metros</b> na janela temporal selecionada.<br><br>"
-            f"<b>Ponto Crítico Residencial:</b> O incêndio ameaça diretamente o <span style='color:#74b9ff;'><b>{poligonos_habitacionais[0]['nome']}</b></span>. Impacto físico estimado nas habitações às <span style='color:#ff3838;'><b>{pontos_sensiveis_calculados[0]['hora_prevista']}</b></span>."
+            f"Foco ativo. A frente progride a <b>{fator_velocidade:.1f} m/min</b>. "
+            f"A projeção da gota atingirá os <b>{comprimento_cabeça:.0f} metros</b>.<br><br>"
+            f"<b>Ponto Crítico Residencial:</b> Ameaça direta sobre o <span style='color:#74b9ff;'><b>{poligonos_habitacionais[0]['nome']}</b></span>. Impacto estimado às <span style='color:#ff3838;'><b>{pontos_sensiveis_calculados[0]['hora_prevista']}</b></span>."
             f"</div>", unsafe_allow_html=True
         )
     with c_pea2:
         st.write("**Diretrizes Operacionais de Defesa Civil:**")
-        st.write(f"1. **Proteção do Polígono Populacional:** Posicionar as equipas de sapadores e o **{tabela_meios_socorro[0]['Meio de Socorro']}** na linha de transição floresta-urbana do **{poligonos_habitacionais[0]['nome']}** para contenção perimétrica antes das {pontos_sensiveis_calculados[0]['hora_prevista']}.")
-        st.write(f"2. **Segurança de Redes Elétricas:** Isolar a **{redes_infraestrutura[0]['nome']}** no troço mapeado para prevenir falhas de rede em cadeia devido à aproximação das chamas às {pontos_sensiveis_calculados[1]['hora_prevista']}.")
-        st.write(f"3. **Evacuação Preventiva Dinâmica:** Estabelecer rotas de fuga e aviso sonoro para os moradores das habitações mapeadas na periferia do polígono florestal caso o avanço ultrapasse os {fator_velocidade:.1f} m/min.")
+        st.write(f"1. **Proteção do Polígono Populacional:** Posicionar meios terrestres na linha de transição floresta-urbana do **{poligonos_habitacionais[0]['nome']}** antes das {pontos_sensiveis_calculados[0]['hora_prevista']}.")
+        st.write(f"2. **Segurança de Redes Elétricas:** Isolar a **{redes_infraestrutura[0]['nome']}** para prevenir curto-circuitos devidos à coluna de fumo às {pontos_sensiveis_calculados[1]['hora_prevista']}.")
+        st.write(f"3. **Coordenação com ANEPC:** Validar os meios ativos registados na API Fogos.pt com o Posto de Comando Operacional (PCO).")
 
-# Ativa a renderização de dados isolada (sem interferência no mapa)
 renderizar_dados_dinamicos()
